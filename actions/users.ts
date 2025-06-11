@@ -63,7 +63,7 @@ export async function deleteUser(id: string): Promise<ApiResponse<{ message: str
 
 // Changer le mot de passe d'un utilisateur
 export async function changeUserPassword(id: string, passwordData: ChangePasswordForm): Promise<ApiResponse<{ message: string }>> {
-  return apiRequest<{ message: string }>(`/api/v1/users/${id}/change-password`, {
+  return apiRequest<{ message: string }>(`/api/v1/users/${id}/password`, {
     method: 'PUT',
     body: JSON.stringify(passwordData),
   });
