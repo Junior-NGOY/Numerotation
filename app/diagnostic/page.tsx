@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react"
 
+// Configuration de l'URL de base de l'API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface DiagnosticResult {
   name: string
   status: 'success' | 'error' | 'warning' | 'loading'
@@ -39,11 +42,9 @@ export default function DiagnosticPage() {
         message: 'Erreur d\'accès au localStorage',
         details: error instanceof Error ? error.message : 'Erreur inconnue'
       })
-    }
-
-    // Test 2: Ping du serveur backend
+    }    // Test 2: Ping du serveur backend
     try {
-      const response = await fetch('http://localhost:8000/health', {
+      const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -71,12 +72,10 @@ export default function DiagnosticPage() {
         message: 'Backend inaccessible',
         details: error instanceof Error ? error.message : 'Erreur de connexion'
       })
-    }
-
-    // Test 3: Test de l'endpoint dashboard/summary
+    }    // Test 3: Test de l'endpoint dashboard/summary
     try {
       const token = localStorage.getItem('auth_token')
-      const response = await fetch('http://localhost:8000/api/v1/dashboard/summary', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/summary`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -108,16 +107,13 @@ export default function DiagnosticPage() {
         message: 'Erreur lors de l\'appel',
         details: error instanceof Error ? error.message : 'Erreur inconnue'
       })
-    }
-
-    // Test 4: Variables d'environnement
+    }    // Test 4: Variables d'environnement
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       results.push({
         name: 'Configuration Frontend',
         status: 'success',
         message: 'Variables d\'environnement chargées',
-        details: `API_URL: ${apiUrl}`
+        details: `API_URL: ${API_BASE_URL}`
       })
     } catch (error) {
       results.push({

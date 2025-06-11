@@ -1,4 +1,8 @@
 // Script d'initialisation pour l'authentification
+
+// Configuration de l'URL de base de l'API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export async function initializeAuth() {
   if (typeof window === 'undefined') return false;
   
@@ -13,7 +17,7 @@ export async function initializeAuth() {
   
   try {
     // Tenter de se connecter automatiquement avec les identifiants de test
-    const response = await fetch('http://localhost:8000/api/v1/users/login', {
+    const response = await fetch(`${API_BASE_URL}/api/v1/users/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -72,7 +76,7 @@ export async function ensureAuthenticated() {
 // Fonction pour tester la validité d'un token
 export async function validateToken(token: string): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:8000/api/v1/vehicules', {
+    const response = await fetch(`${API_BASE_URL}/api/v1/vehicules`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
