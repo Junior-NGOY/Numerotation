@@ -7,7 +7,28 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react"
 
 // Configuration de l'URL de base de l'API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+function getApiBaseUrl(): string {
+  let baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  
+  // Si la variable d'environnement ne contient que le domaine (sans protocole), ajouter https://
+  if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  
+  // Supprimer le slash final s'il existe
+  baseUrl = baseUrl.replace(/\/$/, '');
+  
+  // Vérifier que l'URL est valide
+  try {
+    new URL(baseUrl);
+    return baseUrl;
+  } catch (error) {
+    console.error('URL de base API invalide:', baseUrl, error);
+    return 'http://localhost:8000';
+  }
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 interface DiagnosticResult {
   name: string
