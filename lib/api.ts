@@ -1,5 +1,22 @@
 // Configuration de base pour les appels API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Fonction pour normaliser l'URL de base
+function getApiBaseUrl(): string {
+  let baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  
+  // Supprimer le slash final s'il existe
+  baseUrl = baseUrl.replace(/\/$/, '');
+  
+  // Vérifier que l'URL est valide
+  try {
+    new URL(baseUrl);
+    return baseUrl;
+  } catch (error) {
+    console.error('URL de base API invalide:', baseUrl, error);
+    return 'http://localhost:8000';
+  }
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 import { ApiResponse, PaginatedResponse } from '@/types/api';
 
@@ -33,6 +50,15 @@ export async function apiRequest<T>(
   const token = getAuthToken();
   
   const url = `${API_BASE_URL}${endpoint}`;
+  
+  // Debug logging
+  console.log('🔍 API Request Debug:', {
+    API_BASE_URL,
+    endpoint,
+    finalUrl: url,
+    env: process.env.NEXT_PUBLIC_API_URL
+  });
+  
   const config: RequestInit = {
     headers: {
       'Content-Type': 'application/json',

@@ -1,7 +1,23 @@
 // Script d'initialisation pour l'authentification
 
 // Configuration de l'URL de base de l'API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+function getApiBaseUrl(): string {
+  let baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  
+  // Supprimer le slash final s'il existe
+  baseUrl = baseUrl.replace(/\/$/, '');
+  
+  // Vérifier que l'URL est valide
+  try {
+    new URL(baseUrl);
+    return baseUrl;
+  } catch (error) {
+    console.error('URL de base API invalide:', baseUrl, error);
+    return 'http://localhost:8000';
+  }
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export async function initializeAuth() {
   if (typeof window === 'undefined') return false;
