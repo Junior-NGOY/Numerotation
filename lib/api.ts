@@ -1,5 +1,6 @@
 // Configuration de base pour les appels API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+//const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 import { ApiResponse, PaginatedResponse } from '@/types/api';
 
