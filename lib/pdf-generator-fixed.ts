@@ -2,6 +2,100 @@ import jsPDF from 'jspdf'
 import { generateQRCode, generateVehicleQRData } from './qr-generator'
 import { formatPrice, getVehicleTypeDescription } from './pricing-utils'
 
+// Fonction pour convertir un nombre en lettres (français)
+function convertirNombreEnLettres(nombre: number): string {
+  const unites = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+  const dizaines = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];
+  const exceptions = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+
+  if (nombre === 0) return 'zéro';
+  if (nombre < 0) return 'moins ' + convertirNombreEnLettres(-nombre);
+
+  let resultat = '';
+
+  // Millions
+  if (nombre >= 1000000) {
+    const millions = Math.floor(nombre / 1000000);
+    if (millions === 1) {
+      resultat += 'un million ';
+    } else {
+      resultat += convertirNombreEnLettres(millions) + ' millions ';
+    }
+    nombre %= 1000000;
+  }
+
+  // Milliers
+  if (nombre >= 1000) {
+    const milliers = Math.floor(nombre / 1000);
+    if (milliers === 1) {
+      resultat += 'mille ';
+    } else {
+      resultat += convertirNombreEnLettres(milliers) + ' mille ';
+    }
+    nombre %= 1000;
+  }
+
+  // Centaines
+  if (nombre >= 100) {
+    const centaines = Math.floor(nombre / 100);
+    if (centaines === 1) {
+      resultat += 'cent ';
+    } else {
+      resultat += unites[centaines] + ' cent ';
+    }
+    nombre %= 100;
+  }
+
+  // Dizaines et unités
+  if (nombre >= 20) {
+    const dizaine = Math.floor(nombre / 10);
+    const unite = nombre % 10;
+    
+    if (dizaine === 7) {
+      if (unite === 1) {
+        resultat += 'soixante et onze ';
+      } else if (unite === 0) {
+        resultat += 'soixante-dix ';
+      } else {
+        resultat += 'soixante-' + exceptions[unite] + ' ';
+      }
+    } else if (dizaine === 9) {
+      if (unite === 0) {
+        resultat += 'quatre-vingt-dix ';
+      } else {
+        resultat += 'quatre-vingt-' + exceptions[unite] + ' ';
+      }
+    } else if (dizaine === 8) {
+      if (unite === 0) {
+        resultat += 'quatre-vingts ';
+      } else {
+        resultat += 'quatre-vingt-' + unites[unite] + ' ';
+      }
+    } else {
+      resultat += dizaines[dizaine];
+      if (unite === 1 && dizaine !== 8) {
+        resultat += ' et un ';
+      } else if (unite > 0) {
+        resultat += '-' + unites[unite] + ' ';
+      } else {
+        resultat += ' ';
+      }
+    }
+  } else if (nombre >= 10) {
+    resultat += exceptions[nombre - 10] + ' ';
+  } else if (nombre > 0) {
+    resultat += unites[nombre] + ' ';
+  }
+
+  return resultat.trim();
+}
+
+// Fonction pour formater le prix en lettres
+function formatPrixEnLettres(prix: number): string {
+  const prixEnLettres = convertirNombreEnLettres(prix);
+  return prixEnLettres.charAt(0).toUpperCase() + prixEnLettres.slice(1) + ' francs congolais';
+}
+
 interface VehicleRegistration {
   id?: string
   proprietaire: {
@@ -197,14 +291,18 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
     // Texte dans l'encadré avec barre verticale
   doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
-  doc.text('VOLET A | à verser à FBN-BANK: 00014-25000-2042090896316 | CDF 90%', pageWidth / 2, bankBoxY + 7, { align: 'center' })
-    // === TITRE DU DOCUMENT ===
+  doc.text('VOLET A | à verser à FBN-BANK: 00014-25000-2042090896316 | CDF', pageWidth / 2, bankBoxY + 7, { align: 'center' })    // === TITRE DU DOCUMENT ===
   doc.setFontSize(16)
   doc.setTextColor(0, 0, 0)
   doc.text(`NOTE DE PERCEPTION N° ${vehiculeData.codeUnique || 'N/A'}`, pageWidth / 2, bankBoxY + bankBoxHeight + 12, { align: 'center' })
+  
+  // === TEXTES LÉGAUX ===
+  doc.setFontSize(10)
+  doc.setTextColor(0, 0, 0)
+  doc.text('Textes Légaux : - Arrêté Urbain N°011/Bur-Mairie/Ville/Lshi/2025 du 11 Juin 2025', pageWidth / 2, bankBoxY + bankBoxHeight + 22, { align: 'center' })
     
   // === CORPS DU DOCUMENT ===
-  let currentY = headerHeight + 45
+  let currentY = headerHeight + 55
     // SECTION I. PROPRIÉTAIRE avec encadré simple
   doc.setFontSize(12)
   doc.setTextColor(0, 0, 0)
@@ -228,7 +326,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.text('Téléphone :', labelCol2, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${proprietaireData.telephone || 'Non spécifié'}`, dataCol2, currentY)
-    currentY += 8
+  currentY += 6
   
   // Ligne 2: Adresse complète (sur toute la largeur)
   doc.setTextColor(25, 118, 210)
@@ -236,7 +334,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.setTextColor(0, 0, 0)
   doc.text(`${proprietaireData.adresse || 'Non spécifiée'}`, dataCol1, currentY)
   
-  currentY += 8
+  currentY += 6
   
   // Ligne 3: Type de pièce et Numéro - Lieu de délivrance
   doc.setTextColor(25, 118, 210)
@@ -256,7 +354,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.setTextColor(0, 0, 0)
   doc.text(`${proprietaireData.numeroPiece || 'N/A'}`, dataCol1, currentY)
   
-  currentY += 15    // SECTION II. VÉHICULE
+  currentY += 10    // SECTION II. VÉHICULE
   doc.setFontSize(12);  doc.text('II. CARACTÉRISTIQUES DU VÉHICULE', 20, currentY)
   // Contenu véhicule avec alignement structuré
   doc.setFontSize(10)
@@ -277,7 +375,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.text('Modèle :', vLabelCol2, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${vehiculeData.modele || 'Non spécifié'}`, vDataCol2, currentY)
-    currentY += 8
+    currentY += 6
   
   // Ligne 2: Type de véhicule - Année de fabrication
   doc.setTextColor(25, 118, 210)
@@ -308,8 +406,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.text('N° de châssis :', vLabelCol1, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${vehiculeData.numeroChassis || 'Non spécifié'}`, vDataCol1, currentY)
-  
-  currentY += 15
+    currentY += 10
     // SECTION III. ADMINISTRATIVE
   doc.setFontSize(12)
   doc.setTextColor(0, 0, 0)
@@ -321,32 +418,38 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   const aDataCol1 = 70      // Première colonne données (plus près)
   const aLabelCol2 = 120    // Deuxième colonne labels  
   const aDataCol2 = 155     // Deuxième colonne données (plus près)
-  
-  // Ligne 1: Prix d'enregistrement - Année d'enregistrement
+    // Ligne 1: Prix d'enregistrement - Année d'enregistrement
   doc.setTextColor(25, 118, 210) // Bleu professionnel pour les labels
   doc.text('Prix enregistrement :', aLabelCol1, currentY)
   doc.setTextColor(0, 0, 0) // Noir pour les données
   doc.text(`${formatPrice(vehiculeData.prixEnregistrement)}`, aDataCol1, currentY)
   
   doc.setTextColor(25, 118, 210)
-  doc.text('Année enregistrement :', aLabelCol2, currentY)
+  doc.text('Code unique :', aLabelCol2, currentY)
   doc.setTextColor(0, 0, 0)
-  doc.text(`${vehiculeData.anneeEnregistrement || new Date().getFullYear()}`, aDataCol2, currentY)
-    currentY += 8
+  doc.text(`${vehiculeData.codeUnique || 'N/A'}`, aDataCol2, currentY)
+  currentY += 8
   
-  // Ligne 2: Code unique
+  // Ligne 2: Nous disons (prix en lettres)
   doc.setTextColor(25, 118, 210)
-  doc.text('Code unique :', aLabelCol1, currentY)
+  doc.text('Nous disons :', aLabelCol1, currentY)
   doc.setTextColor(0, 0, 0)
-  doc.text(`${vehiculeData.codeUnique || 'N/A'}`, aDataCol1, currentY)
-    currentY += 15
+  doc.text(`${formatPrixEnLettres(vehiculeData.prixEnregistrement)}`, aDataCol1, currentY)
+  currentY += 8
+  
+  // Ligne 3: Année enregistrement
+  doc.setTextColor(25, 118, 210)
+  doc.text('Année enregistrement :', aLabelCol1, currentY)
+  doc.setTextColor(0, 0, 0)
+  doc.text(`${vehiculeData.anneeEnregistrement || new Date().getFullYear()}`, aDataCol1, currentY)
+    currentY += 10
   
   // SECTION IV. ITINÉRAIRE AUTORISÉ
   doc.setFontSize(12)
-  doc.text('IV. ITINÉRAIRE AUTORISÉ', 20, currentY)  // QR CODE - Positionné à côté de la section itinéraire (légèrement descendu)
+  doc.text('IV. ITINÉRAIRE AUTORISÉ', 20, currentY)  // QR CODE - Positionné à côté de la section itinéraire (remonté davantage)
   const qrSize = 35
   const qrX = pageWidth - qrSize - 20  // Position à droite avec marge
-  const qrY = currentY - 15   // Descendu un peu (était à -20)
+  const qrY = currentY - 20   // Légèrement au-dessus de la ligne du dessus
   doc.addImage(qrCodeDataURL, 'PNG', qrX, qrY, qrSize, qrSize)
   
   doc.setFontSize(7)
@@ -364,7 +467,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   // Ajuster la largeur du texte pour éviter le QR code
   const itineraire = doc.splitTextToSize(vehiculeData.itineraire || 'Itinéraire non spécifié', pageWidth - qrSize - 50)
   doc.text(itineraire, 20, currentY)
-  currentY += Math.max(15, itineraire.length * 4) + 8
+  currentY += Math.max(10, itineraire.length * 3) + 5
     // === PIED DE PAGE AVEC SIGNATURES ===
   // Ligne de séparation simple
   doc.setDrawColor(0, 0, 0)
@@ -376,31 +479,28 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   // Pied de page avec trois signatures : "le redevable | la Direction | PPU"
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)
-  
-  // Calculer les positions pour une répartition équitable
+    // Calculer les positions pour une répartition équitable
   const footerWidth = pageWidth - 40  // Marges de 20 de chaque côté
   const sectionWidth = footerWidth / 3
   
-  // Position X pour chaque section
-  const redevableX = 20
-  const directionX = 20 + sectionWidth
-  const ppuX = 20 + (2 * sectionWidth)
-    // Le redevable (première colonne)
-  doc.text('Le Redevable', redevableX, currentY)
-  doc.text('____________________', redevableX, currentY + 12)
-  doc.text('Signature', redevableX, currentY + 17)
+  // Position X pour chaque section - mieux équilibrées
+  const chefServiceX = 25  // Chef de Service à gauche
+  const redevableX = 20 + (footerWidth / 2) - 25  // Redevable au centre
+  const ppuX = pageWidth - 60  // P.P.U à droite
   
-  // La Direction (deuxième colonne)
-  doc.text('La Direction', directionX, currentY)
-  doc.text('____________________', directionX, currentY + 12)
-  doc.text('Signature et cachet', directionX, currentY + 17)
+  // Chef de Service de Transport Urbain (gauche)
+  doc.text('Chef de Service de', chefServiceX, currentY)
+  doc.text('Transport Urbain', chefServiceX, currentY + 5)
+  doc.text('____________________', chefServiceX, currentY + 15)
   
-  // PPU (troisième colonne)
-  doc.text('PPU', ppuX, currentY)
-  doc.text('____________________', ppuX, currentY + 12)
-  doc.text('Signature et cachet', ppuX, currentY + 17)
-    // Informations techniques en bas
-  currentY += 25
+  // Redevable (centre)
+  doc.text('Redevable', redevableX, currentY)
+  doc.text('____________________', redevableX, currentY + 15)
+  
+  // P.P.U (droite)
+  doc.text('P.P.U', ppuX, currentY)
+  doc.text('____________________', ppuX, currentY + 15)  // Informations techniques en bas
+  currentY += 23
   doc.setFontSize(8)
   doc.setTextColor(100, 100, 100)
   doc.text(`Document généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`, 20, currentY)
@@ -612,11 +712,10 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   currentY += 20
     // II. VÉHICULE (avec QR code)
   doc.setFontSize(12)
-  doc.text('II. CARACTÉRISTIQUES TECHNIQUES', 20, currentY)
-    // QR CODE OFFICIEL - Repositionné plus à droite
+  doc.text('II. CARACTÉRISTIQUES TECHNIQUES', 20, currentY)    // QR CODE OFFICIEL - Repositionné plus à droite et remonté
   const qrSize = 40
   const qrX = pageWidth - 55  // Plus à droite (était à -75)
-  const qrY = currentY + 5
+  const qrY = currentY - 2  // Légèrement au-dessus de la ligne du dessus
   
   doc.addImage(qrCodeDataURL, 'PNG', qrX, qrY, qrSize, qrSize)
   
@@ -699,24 +798,31 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   const a2DataCol1 = 70      // Première colonne données (plus près)
   const a2LabelCol2 = 120    // Deuxième colonne labels  
   const a2DataCol2 = 155     // Deuxième colonne données (plus près)
-  
-  // Ligne 1: Droits d'enregistrement - Année fiscale
+    // Ligne 1: Droits d'enregistrement - Année fiscale
   doc.setTextColor(25, 118, 210) // Bleu professionnel pour les labels
   doc.text('Droits enregistrement :', a2LabelCol1, currentY)
-  doc.setTextColor(0, 0, 0) // Noir pour les données
-  doc.text(`${formatPrice(vehiculeData.prixEnregistrement)}`, a2DataCol1, currentY)
+  doc.setTextColor(0, 0, 0) // Noir pour les données  doc.text(`${formatPrice(vehiculeData.prixEnregistrement)}`, a2DataCol1, currentY)
   
   doc.setTextColor(25, 118, 210)
-  doc.text('Année fiscale :', a2LabelCol2, currentY)
+  doc.text('Code de référence :', a2LabelCol2, currentY)
   doc.setTextColor(0, 0, 0)
-  doc.text(`${vehiculeData.anneeEnregistrement || new Date().getFullYear()}`, a2DataCol2, currentY)
+  doc.text(`${vehiculeData.codeUnique || 'N/A'}`, a2DataCol2, currentY)
   
   currentY += 10
-    // Ligne 2: Code de référence
+  
+  // Ligne 2: Nous disons (prix en lettres)
   doc.setTextColor(25, 118, 210)
-  doc.text('Code de référence :', a2LabelCol1, currentY)
+  doc.text('Nous disons :', a2LabelCol1, currentY)
   doc.setTextColor(0, 0, 0)
-  doc.text(`${vehiculeData.codeUnique || 'N/A'}`, a2DataCol1, currentY)
+  doc.text(`${formatPrixEnLettres(vehiculeData.prixEnregistrement)}`, a2DataCol1, currentY)
+  
+  currentY += 10
+  
+  // Ligne 3: Année fiscale
+  doc.setTextColor(25, 118, 210)
+  doc.text('Année fiscale :', a2LabelCol1, currentY)
+  doc.setTextColor(0, 0, 0)
+  doc.text(`${vehiculeData.anneeEnregistrement || new Date().getFullYear()}`, a2DataCol1, currentY)
   
   currentY += 20
   
@@ -745,18 +851,15 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   // Signatures officielles
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)
-  
-  // Côté gauche - Mairie
+    // Côté gauche - Mairie
   doc.text('POUR LE MAIRE', 25, currentY)
   doc.text('Le Secrétaire Général', 25, currentY + 6)
   doc.text('_______________________', 25, currentY + 20)
-  doc.text('Signature et cachet officiel', 25, currentY + 26)
   
   // Côté droit - SID
   doc.text('SID - SERVICE D\'ENREGISTREMENT', pageWidth - 85, currentY)
   doc.text('Le Responsable Technique', pageWidth - 85, currentY + 6)
   doc.text('_______________________', pageWidth - 85, currentY + 20)
-  doc.text('Signature et cachet', pageWidth - 85, currentY + 26)
   
   // Petits logos en signature si disponibles
   if (logoMairieDataURL) {
@@ -765,9 +868,8 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   if (logoSIDDataURL) {
     doc.addImage(logoSIDDataURL, 'JPEG', pageWidth - 40, currentY + 8, 15, 12)
   }
-  
-  // Pied de page technique
-  currentY += 35
+    // Pied de page technique
+  currentY += 28
   doc.setFontSize(7)
   doc.setTextColor(100, 100, 100)
   doc.text(`Document généré automatiquement le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`, 20, currentY)

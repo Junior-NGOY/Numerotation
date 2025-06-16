@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api';
+import { toast } from 'sonner';
 import type { 
   User, 
   CreateUserForm, 
@@ -11,10 +12,21 @@ import type {
 
 // Créer un utilisateur
 export async function createUser(userData: CreateUserForm): Promise<ApiResponse<User>> {
-  return apiRequest<User>('/api/v1/users/register', {
-    method: 'POST',
-    body: JSON.stringify(userData),
-  });
+  try {
+    const result = await apiRequest<User>('/api/v1/users/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("✅ Utilisateur créé avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de créer l'utilisateur. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Authentifier un utilisateur
@@ -48,23 +60,62 @@ export async function getUserById(id: string): Promise<ApiResponse<User>> {
 
 // Mettre à jour un utilisateur
 export async function updateUser(id: string, userData: UpdateUserForm): Promise<ApiResponse<User>> {
-  return apiRequest<User>(`/api/v1/users/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(userData),
-  });
+  try {
+    const result = await apiRequest<User>(`/api/v1/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+
+    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("✅ Utilisateur modifié avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de modifier l'utilisateur. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Supprimer un utilisateur
 export async function deleteUser(id: string): Promise<ApiResponse<{ message: string }>> {
-  return apiRequest<{ message: string }>(`/api/v1/users/${id}`, {
-    method: 'DELETE',
-  });
+  try {
+    const result = await apiRequest<{ message: string }>(`/api/v1/users/${id}`, {
+      method: 'DELETE',
+    });
+
+    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("🗑️ Utilisateur supprimé avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de supprimer l'utilisateur. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Changer le mot de passe d'un utilisateur
 export async function changeUserPassword(id: string, passwordData: ChangePasswordForm): Promise<ApiResponse<{ message: string }>> {
-  return apiRequest<{ message: string }>(`/api/v1/users/${id}/password`, {
-    method: 'PUT',
-    body: JSON.stringify(passwordData),
-  });
+  try {
+    const result = await apiRequest<{ message: string }>(`/api/v1/users/${id}/password`, {
+      method: 'PUT',
+      body: JSON.stringify(passwordData),
+    });
+
+    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("🔑 Mot de passe modifié avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de modifier le mot de passe. Veuillez réessayer.");
+    throw error;
+  }
 }

@@ -75,22 +75,15 @@ export default function VehiculesPage() {
     watch,
     formState: { errors },
   } = useForm<CreateVehiculeForm>()
-
   const onSubmit = async (data: CreateVehiculeForm) => {
     let result;
     
     if (editingVehicule) {
       // Modification
       result = await updateMutation.mutate({ id: editingVehicule.id, data })
-      if (result) {
-        toast.success("Véhicule modifié avec succès!")
-      }
     } else {
       // Création
       result = await createMutation.mutate(data)
-      if (result) {
-        toast.success("Véhicule créé avec succès!")
-      }
     }
 
     if (result) {

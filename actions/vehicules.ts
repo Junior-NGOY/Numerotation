@@ -1,4 +1,5 @@
-import { apiRequest } from '@/lib/api';
+import { apiRequest, apiRequestFormData } from '@/lib/api';
+import { toast } from 'sonner';
 import type { 
   Vehicule, 
   CreateVehiculeForm,
@@ -7,12 +8,45 @@ import type {
   SearchParams 
 } from '@/types/api';
 
-// Créer un véhicule
-export async function createVehicule(vehiculeData: CreateVehiculeForm): Promise<ApiResponse<Vehicule>> {
-  return apiRequest<Vehicule>('/api/v1/vehicules', {
-    method: 'POST',
-    body: JSON.stringify(vehiculeData),
-  });
+// Créer un véhicule avec possibilité d'upload de documents
+export async function createVehicule(vehiculeData: CreateVehiculeForm, files?: File[]): Promise<ApiResponse<Vehicule>> {
+  try {
+    let result: ApiResponse<Vehicule>;
+    
+    if (files && files.length > 0) {
+      // Utiliser FormData pour l'upload de fichiers
+      const formData = new FormData();
+      
+      // Ajouter les données du véhicule
+      Object.entries(vehiculeData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, String(value));
+        }
+      });
+      
+      // Ajouter les fichiers
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      
+      result = await apiRequestFormData<Vehicule>('/api/v1/vehicules', formData);
+    } else {
+      // Utiliser JSON si pas de fichiers
+      result = await apiRequest<Vehicule>('/api/v1/vehicules', {
+        method: 'POST',
+        body: JSON.stringify(vehiculeData),
+      });
+    }    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("✅ Véhicule ajouté avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible d'ajouter le véhicule. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Obtenir tous les véhicules avec pagination et filtres
@@ -61,17 +95,39 @@ export async function getVehiculesByProprietaire(proprietaireId: string, params:
 
 // Mettre à jour un véhicule
 export async function updateVehicule(id: string, vehiculeData: Partial<CreateVehiculeForm>): Promise<ApiResponse<Vehicule>> {
-  return apiRequest<Vehicule>(`/api/v1/vehicules/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(vehiculeData),
-  });
+  try {
+    const result = await apiRequest<Vehicule>(`/api/v1/vehicules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(vehiculeData),
+    });    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("✅ Véhicule modifié avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de modifier le véhicule. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Supprimer un véhicule
 export async function deleteVehicule(id: string): Promise<ApiResponse<{ message: string }>> {
-  return apiRequest<{ message: string }>(`/api/v1/vehicules/${id}`, {
-    method: 'DELETE',
-  });
+  try {
+    const result = await apiRequest<{ message: string }>(`/api/v1/vehicules/${id}`, {
+      method: 'DELETE',
+    });    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("🗑️ Véhicule supprimé avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de supprimer le véhicule. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Rechercher des véhicules

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { FileUpload } from "@/components/ui/file-upload"
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export default function ProprietairesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProprietaire, setEditingProprietaire] = useState<Proprietaire | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   // Débounce pour la recherche automatique (500ms de délai)
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
@@ -50,9 +52,9 @@ export default function ProprietairesPage() {
     updateParams({ search: debouncedSearchTerm, page: 1 })
   }, [debouncedSearchTerm, updateParams])
   // Wrappers pour les mutations
-  const createMutation = useApiMutation(async (params?: CreateProprietaireForm) => {
+  const createMutation = useApiMutation(async (params?: { data: CreateProprietaireForm; file?: File }) => {
     if (!params) throw new Error('Données requises pour la création')
-    return createProprietaire(params)
+    return createProprietaire(params.data, params.file)
   })
   
   const updateMutation = useApiMutation(async (params?: { id: string; data: Partial<CreateProprietaireForm> }) => {
@@ -72,27 +74,22 @@ export default function ProprietairesPage() {
     reset,
     formState: { errors },
   } = useForm<CreateProprietaireForm>()
-
   const onSubmit = async (data: CreateProprietaireForm) => {
     let result;
     
     if (editingProprietaire) {
       // Modification
       result = await updateMutation.mutate({ id: editingProprietaire.id, data })
-      if (result) {
-        toast.success("Propriétaire modifié avec succès!")
-      }
     } else {
-      // Création
-      result = await createMutation.mutate(data)
-      if (result) {
-        toast.success("Propriétaire créé avec succès!")
-      }
+      // Création avec fichier optionnel
+      const file = selectedFiles.length > 0 ? selectedFiles[0] : undefined
+      result = await createMutation.mutate({ data, file })
     }
 
     if (result) {
       setIsDialogOpen(false)
       setEditingProprietaire(null)
+      setSelectedFiles([])
       reset()
       refetch()
     } else {
@@ -113,12 +110,10 @@ export default function ProprietairesPage() {
     setValue("dateDelivrance", proprietaire.dateDelivrance)
     setIsDialogOpen(true)
   }
-
   const handleDelete = async (id: string) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce propriétaire ?")) {
       const result = await deleteMutation.mutate(id)
       if (result) {
-        toast.success("Propriétaire supprimé avec succès!")
         refetch()
       } else {
         toast.error(deleteMutation.error || "Erreur lors de la suppression")
@@ -368,6 +363,23 @@ export default function ProprietairesPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Upload de la pièce d'identité */}
+                    {!editingProprietaire && (
+                      <FileUpload
+                        onFileSelect={setSelectedFiles}
+                        onFileRemove={(index) => {
+                          setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+                        }}
+                        selectedFiles={selectedFiles}
+                        accept="image/*,.pdf"
+                        multiple={false}
+                        maxFiles={1}
+                        maxSize={10}
+                        label="Scan de la pièce d'identité (optionnel)"
+                        description="Glissez-déposez une image ou PDF de la pièce d'identité"
+                      />
+                    )}
                   </CardContent>
                 </Card>
 

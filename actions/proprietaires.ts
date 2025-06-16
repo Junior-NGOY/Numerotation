@@ -1,4 +1,5 @@
-import { apiRequest } from '@/lib/api';
+import { apiRequest, apiRequestFormData } from '@/lib/api';
+import { toast } from 'sonner';
 import type { 
   Proprietaire, 
   CreateProprietaireForm,
@@ -7,12 +8,43 @@ import type {
   SearchParams 
 } from '@/types/api';
 
-// Créer un propriétaire
-export async function createProprietaire(proprietaireData: CreateProprietaireForm): Promise<ApiResponse<Proprietaire>> {
-  return apiRequest<Proprietaire>('/api/v1/proprietaires', {
-    method: 'POST',
-    body: JSON.stringify(proprietaireData),
-  });
+// Créer un propriétaire avec possibilité d'upload de pièce d'identité
+export async function createProprietaire(proprietaireData: CreateProprietaireForm, file?: File): Promise<ApiResponse<Proprietaire>> {
+  try {
+    let result: ApiResponse<Proprietaire>;
+    
+    if (file) {
+      // Utiliser FormData pour l'upload de fichier
+      const formData = new FormData();
+      
+      // Ajouter les données du propriétaire
+      Object.entries(proprietaireData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, String(value));
+        }
+      });
+      
+      // Ajouter le fichier
+      formData.append('file', file);
+      
+      result = await apiRequestFormData<Proprietaire>('/api/v1/proprietaires', formData);
+    } else {
+      // Utiliser JSON si pas de fichier
+      result = await apiRequest<Proprietaire>('/api/v1/proprietaires', {
+        method: 'POST',
+        body: JSON.stringify(proprietaireData),
+      });
+    }    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("✅ Propriétaire ajouté avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible d'ajouter le propriétaire. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Obtenir tous les propriétaires avec pagination et filtres
@@ -38,17 +70,39 @@ export async function getProprietaireById(id: string): Promise<ApiResponse<Propr
 
 // Mettre à jour un propriétaire
 export async function updateProprietaire(id: string, proprietaireData: Partial<CreateProprietaireForm>): Promise<ApiResponse<Proprietaire>> {
-  return apiRequest<Proprietaire>(`/api/v1/proprietaires/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(proprietaireData),
-  });
+  try {
+    const result = await apiRequest<Proprietaire>(`/api/v1/proprietaires/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(proprietaireData),
+    });    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("✅ Propriétaire modifié avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de modifier le propriétaire. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Supprimer un propriétaire
 export async function deleteProprietaire(id: string): Promise<ApiResponse<{ message: string }>> {
-  return apiRequest<{ message: string }>(`/api/v1/proprietaires/${id}`, {
-    method: 'DELETE',
-  });
+  try {
+    const result = await apiRequest<{ message: string }>(`/api/v1/proprietaires/${id}`, {
+      method: 'DELETE',
+    });    // Afficher un message de succès
+    if (result.data && !result.error) {
+      toast.success("🗑️ Propriétaire supprimé avec succès !");
+    }
+
+    return result;
+  } catch (error) {
+    // Afficher un message d'erreur
+    toast.error("❌ Impossible de supprimer le propriétaire. Veuillez réessayer.");
+    throw error;
+  }
 }
 
 // Rechercher des propriétaires par numéro de pièce

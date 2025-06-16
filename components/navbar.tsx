@@ -44,6 +44,13 @@ export function Navbar() {
                       Diagnostic
                     </Button>
                   </Link>
+                  
+                  <Link href="/storage">
+                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
+                      <Wrench className="h-4 w-4 mr-2" />
+                      Stockage
+                    </Button>
+                  </Link>
                 </>
               )}
             </div>

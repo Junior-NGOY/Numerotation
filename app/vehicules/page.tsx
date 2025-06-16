@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { FileUpload } from "@/components/ui/file-upload"
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export default function VehiculesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedVehicleType, setSelectedVehicleType] = useState<'BUS' | 'MINI_BUS' | 'TAXI' | null>(null)
   const [viewingVehicule, setViewingVehicule] = useState<Vehicule | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   // Débounce pour la recherche automatique (500ms de délai)
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
@@ -61,9 +63,9 @@ export default function VehiculesPage() {
   } = usePaginatedApiCall(getProprietaires, { page: 1, limit: 100 })
 
   // Wrappers pour les mutations afin de gérer les types correctement
-  const createMutation = useApiMutation(async (params?: CreateVehiculeForm) => {
+  const createMutation = useApiMutation(async (params?: { data: CreateVehiculeForm; files?: File[] }) => {
     if (!params) throw new Error('Données requises pour la création')
-    return createVehicule(params)
+    return createVehicule(params.data, params.files)
   })
   
   const updateMutation = useApiMutation(async (params?: { id: string; data: Partial<CreateVehiculeForm> }) => {
@@ -84,27 +86,22 @@ export default function VehiculesPage() {
     watch,
     formState: { errors },
   } = useForm<CreateVehiculeForm>()
-
   const onSubmit = async (data: CreateVehiculeForm) => {
     let result;
     
     if (editingVehicule) {
       // Modification
       result = await updateMutation.mutate({ id: editingVehicule.id, data })
-      if (result) {
-        toast.success("Véhicule modifié avec succès!")
-      }
     } else {
-      // Création
-      result = await createMutation.mutate(data)
-      if (result) {
-        toast.success("Véhicule créé avec succès!")
-      }
+      // Création avec fichiers optionnels
+      const files = selectedFiles.length > 0 ? selectedFiles : undefined
+      result = await createMutation.mutate({ data, files })
     }
 
     if (result) {
       setIsDialogOpen(false)
       setEditingVehicule(null)
+      setSelectedFiles([])
       reset()
       refetch()
     } else {
@@ -126,11 +123,11 @@ export default function VehiculesPage() {
     setValue("itineraire", vehicule.itineraire)
     setIsDialogOpen(true)
   }
+  
   const handleDelete = async (id: string) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce véhicule ?")) {
       const result = await deleteMutation.mutate(id)
       if (result) {
-        toast.success("Véhicule supprimé avec succès!")
         refetch()
       } else {
         toast.error(deleteMutation.error || "Erreur lors de la suppression")
@@ -434,9 +431,9 @@ export default function VehiculesPage() {
                           <SelectValue placeholder="Sélectionner le type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="BUS">Bus - {formatPrice(90000)}</SelectItem>
+                         {/*  <SelectItem value="BUS">Bus - {formatPrice(90000)}</SelectItem> */}
+                          <SelectItem value="TAXI">Taxi - {formatPrice(50000)}</SelectItem>
                           <SelectItem value="MINI_BUS">Mini Bus - {formatPrice(60000)}</SelectItem>
-                          <SelectItem value="TAXI">Taxi - {formatPrice(30000)}</SelectItem>
                         </SelectContent>
                       </Select>
                       {selectedVehicleType && (
@@ -523,6 +520,31 @@ export default function VehiculesPage() {
                         <p className="text-sm text-red-600 mt-1">{errors.itineraire.message}</p>
                       )}
                     </div>
+                  </CardContent>
+                </Card>                {/* Téléversement de documents */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Documents du véhicule</CardTitle>
+                    <CardDescription>
+                      Uploadez les documents relatifs au véhicule (carte rose, permis de conduire, etc.)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {!editingVehicule && (
+                      <FileUpload
+                        onFileSelect={setSelectedFiles}
+                        onFileRemove={(index) => {
+                          setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+                        }}
+                        selectedFiles={selectedFiles}
+                        accept="image/*,.pdf,.doc,.docx"
+                        multiple={true}
+                        maxFiles={5}
+                        maxSize={10}
+                        label="Documents du véhicule (optionnel)"
+                        description="Glissez-déposez des documents (carte rose, permis de conduire, etc.)"
+                      />
+                    )}
                   </CardContent>
                 </Card>
 
