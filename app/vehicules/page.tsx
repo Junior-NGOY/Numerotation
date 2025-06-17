@@ -26,7 +26,8 @@ import { usePaginatedApiCall, useApiMutation } from "@/hooks/use-api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getVehicules, createVehicule, updateVehicule, deleteVehicule } from "@/actions/vehicules"
 import { getProprietaires } from "@/actions/proprietaires"
-import type { Vehicule, CreateVehiculeForm, Proprietaire } from "@/types/api"
+import { getActiveItineraires, ActiveItineraire } from "@/actions/itineraires"
+import type { Vehicule, CreateVehiculeForm, Proprietaire, Itineraire } from "@/types/api"
 import { toast } from "sonner"
 import { formatPrice, getVehicleTypeDescription, calculateRegistrationPrice } from "@/lib/pricing-utils"
 
@@ -37,10 +38,11 @@ export default function VehiculesPage() {
   const [selectedVehicleType, setSelectedVehicleType] = useState<'BUS' | 'MINI_BUS' | 'TAXI' | null>(null)
   const [viewingVehicule, setViewingVehicule] = useState<Vehicule | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [itineraires, setItineraires] = useState<ActiveItineraire[]>([])
+  const [itinerairesLoading, setItinerairesLoading] = useState(false)
 
   // Débounce pour la recherche automatique (500ms de délai)
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
-
   // Utilisation des hooks API avec le même pattern que propriétaires
   const {
     data: vehicules,
@@ -51,16 +53,36 @@ export default function VehiculesPage() {
     refetch
   } = usePaginatedApiCall(getVehicules, { page: 1, limit: 10 })
 
+  // Provide default pagination values to prevent undefined errors
+  const safePagination = pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }
+
   // Effet pour déclencher la recherche automatiquement
   useEffect(() => {
     updateParams({ search: debouncedSearchTerm, page: 1 })
-  }, [debouncedSearchTerm, updateParams])
-
-  // Récupérer la liste des propriétaires pour le formulaire
+  }, [debouncedSearchTerm, updateParams])  // Récupérer la liste des propriétaires pour le formulaire
   const {
     data: proprietaires,
     loading: proprietairesLoading
   } = usePaginatedApiCall(getProprietaires, { page: 1, limit: 100 })
+
+  // Charger les itinéraires actifs
+  useEffect(() => {
+    const loadItineraires = async () => {
+      setItinerairesLoading(true)
+      try {
+        const response = await getActiveItineraires()
+        if (response.data) {
+          setItineraires(response.data)
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des itinéraires:", error)
+      } finally {
+        setItinerairesLoading(false)
+      }
+    }
+    
+    loadItineraires()
+  }, [])
 
   // Wrappers pour les mutations afin de gérer les types correctement
   const createMutation = useApiMutation(async (params?: { data: CreateVehiculeForm; files?: File[] }) => {
@@ -120,7 +142,7 @@ export default function VehiculesPage() {
     setValue("numeroChassis", vehicule.numeroChassis)
     setValue("anneeFabrication", vehicule.anneeFabrication)
     setValue("capaciteAssises", vehicule.capaciteAssises)
-    setValue("itineraire", vehicule.itineraire)
+    setValue("itineraireId", vehicule.itineraireId)
     setIsDialogOpen(true)
   }
   
@@ -506,18 +528,51 @@ export default function VehiculesPage() {
                           <p className="text-sm text-red-600 mt-1">{errors.capaciteAssises.message}</p>
                         )}
                       </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="itineraire">Itinéraire *</Label>
-                      <Textarea
-                        id="itineraire"
-                        {...register("itineraire", { required: "L'itinéraire est requis" })}
-                        placeholder="Décrivez l'itinéraire ou la ligne de transport"
-                        rows={3}
-                      />
-                      {errors.itineraire && (
-                        <p className="text-sm text-red-600 mt-1">{errors.itineraire.message}</p>
+                    </div>                    <div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="itineraireId">Itinéraire *</Label>
+                        <Link href="/itineraires">
+                          <Button type="button" variant="outline" size="sm">
+                            Gérer les itinéraires
+                          </Button>
+                        </Link>
+                      </div>
+                      <Select
+                        onValueChange={(value) => setValue("itineraireId", value)}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionnez un itinéraire" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {itineraires?.map((itineraire) => (
+                            <SelectItem key={itineraire.id} value={itineraire.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{itineraire.nom}</span>
+                                {itineraire.description && (
+                                  <span className="text-xs text-gray-500">{itineraire.description}</span>
+                                )}                                {(itineraire.distance || itineraire.dureeEstimee) && (
+                                  <span className="text-xs text-gray-400">
+                                    {itineraire.distance && `${itineraire.distance} km`}
+                                    {itineraire.distance && itineraire.dureeEstimee && " - "}
+                                    {itineraire.dureeEstimee && `${itineraire.dureeEstimee} min`}
+                                  </span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {itinerairesLoading && (
+                        <p className="text-sm text-gray-500 mt-1">Chargement des itinéraires...</p>
+                      )}
+                      {!itinerairesLoading && (!itineraires || itineraires.length === 0) && (
+                        <p className="text-sm text-orange-600 mt-1">
+                          Aucun itinéraire disponible. 
+                          <Link href="/itineraires" className="underline ml-1">
+                            Créez-en un
+                          </Link>
+                        </p>
                       )}
                     </div>
                   </CardContent>
@@ -599,7 +654,7 @@ export default function VehiculesPage() {
           <CardHeader>
             <CardTitle>Liste des Véhicules</CardTitle>
             <CardDescription>
-              {pagination?.total || 0} véhicule(s) au total
+              {safePagination.total || 0} véhicule(s) au total
             </CardDescription>
           </CardHeader>
           <CardContent>            {/* Desktop table */}
@@ -607,8 +662,7 @@ export default function VehiculesPage() {
               <ApiDataTable
                 columns={desktopColumns}
                 data={vehicules || []}
-                loading={loading}
-                pagination={pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }}
+                loading={loading}                pagination={safePagination}
                 onPageChange={handlePageChange}
                 onLimitChange={handleLimitChange}
               />
@@ -620,7 +674,7 @@ export default function VehiculesPage() {
                 columns={mobileColumns}
                 data={vehicules || []}
                 loading={loading}
-                pagination={pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }}
+                pagination={safePagination}
                 onPageChange={handlePageChange}
                 onLimitChange={handleLimitChange}
               />
@@ -662,10 +716,18 @@ export default function VehiculesPage() {
                 <div>
                   <Label className="font-semibold">Capacité</Label>
                   <p>{viewingVehicule.capaciteAssises} places assises</p>
-                </div>
-                <div>
+                </div>                <div>
                   <Label className="font-semibold">Itinéraire</Label>
-                  <p>{viewingVehicule.itineraire}</p>
+                  <p>{viewingVehicule.itineraire?.nom || "Itinéraire non spécifié"}</p>
+                  {viewingVehicule.itineraire?.description && (
+                    <p className="text-sm text-gray-600">{viewingVehicule.itineraire.description}</p>
+                  )}                  {(viewingVehicule.itineraire?.distance || viewingVehicule.itineraire?.dureeEstimee) && (
+                    <p className="text-sm text-gray-500">
+                      {viewingVehicule.itineraire.distance && `${viewingVehicule.itineraire.distance} km`}
+                      {viewingVehicule.itineraire.distance && viewingVehicule.itineraire.dureeEstimee && " - "}
+                      {viewingVehicule.itineraire.dureeEstimee && `${viewingVehicule.itineraire.dureeEstimee} min`}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label className="font-semibold">Code unique</Label>

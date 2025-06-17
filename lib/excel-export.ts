@@ -89,7 +89,7 @@ export const prepareVehiculeDataForExport = (vehiculesWithProprietaires: any[]) 
       "Numéro Châssis": item.numeroChassis || 'Non spécifié',
       "Année Fabrication": item.anneeFabrication || 'Non spécifiée',
       "Capacité Assises": item.capaciteAssises || '0',
-      "Itinéraire": item.itineraire || 'Non spécifié',
+      "Itinéraire": item.itineraire?.nom || 'Non spécifié',
       
       // INFORMATIONS ADMINISTRATIVES
       "Code Unique": item.codeUnique || 'Non généré',

@@ -37,7 +37,7 @@ export function ApiDataTable<T extends Record<string, any>>({
   onPageChange,
   onLimitChange,
 }: ApiDataTableProps<T>) {
-  const { page, limit, total, totalPages } = pagination;
+  const { page, limit, total, totalPages } = pagination || { page: 1, limit: 10, total: 0, totalPages: 0 };
   const startIndex = (page - 1) * limit;
   const endIndex = Math.min(startIndex + limit, total);
   const handleLimitChange = (newLimit: number) => {

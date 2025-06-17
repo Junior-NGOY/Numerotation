@@ -465,7 +465,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   currentY += 12
   doc.setFontSize(9)
   // Ajuster la largeur du texte pour éviter le QR code
-  const itineraire = doc.splitTextToSize(vehiculeData.itineraire || 'Itinéraire non spécifié', pageWidth - qrSize - 50)
+  const itineraire = doc.splitTextToSize(vehiculeData.itineraire?.nom || 'Itinéraire non spécifié', pageWidth - qrSize - 50)
   doc.text(itineraire, 20, currentY)
   currentY += Math.max(10, itineraire.length * 3) + 5
     // === PIED DE PAGE AVEC SIGNATURES ===
@@ -833,7 +833,7 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   
   currentY += 15
   doc.setFontSize(9)
-  const itineraire = doc.splitTextToSize(vehiculeData.itineraire || 'Tous itinéraires autorisés sur le territoire de Lubumbashi', pageWidth - 50)
+  const itineraire = doc.splitTextToSize(vehiculeData.itineraire?.nom || 'Tous itinéraires autorisés sur le territoire de Lubumbashi', pageWidth - 50)
   doc.text(itineraire, 20, currentY)
   
   currentY += itineraireHeight - 10

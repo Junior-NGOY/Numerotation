@@ -57,6 +57,24 @@ export interface Proprietaire {
   };
 }
 
+export interface Itineraire {
+  id: string;
+  nom: string;
+  description?: string;
+  distance?: number;
+  dureeEstimee?: number;
+  createdAt: string;
+  updatedAt?: string;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  _count?: {
+    vehicules: number;
+  };
+}
+
 export interface Vehicule {
   id: string;
   marque: string;
@@ -66,7 +84,7 @@ export interface Vehicule {
   numeroChassis: string;
   anneeFabrication: number;
   capaciteAssises: number;
-  itineraire: string;
+  itineraireId: string;
   codeUnique: string;
   anneeEnregistrement: number;
   prixEnregistrement: number;
@@ -78,6 +96,13 @@ export interface Vehicule {
     nom: string;
     prenom: string;
     telephone: string;
+  };
+  itineraire?: {
+    id: string;
+    nom: string;
+    description?: string;
+    distance?: number;
+    dureeEstimee?: number;
   };
   createdBy?: {
     id: string;
@@ -183,6 +208,20 @@ export interface CreateProprietaireForm {
   dateDelivrance: string;
 }
 
+export interface CreateItineraireForm {
+  nom: string;
+  description?: string;
+  distance?: number;
+  dureeEstimee?: number;
+}
+
+export interface UpdateItineraireForm {
+  nom?: string;
+  description?: string;
+  distance?: number;
+  dureeEstimee?: number;
+}
+
 export interface CreateVehiculeForm {
   marque: string;
   modele: string;
@@ -191,7 +230,7 @@ export interface CreateVehiculeForm {
   numeroChassis: string;
   anneeFabrication: number;
   capaciteAssises: number;
-  itineraire: string;
+  itineraireId: string;
   codeUnique?: string; // Optionnel car généré automatiquement côté backend
   anneeEnregistrement?: number; // Optionnel, utilise l'année courante par défaut
   proprietaireId: string;

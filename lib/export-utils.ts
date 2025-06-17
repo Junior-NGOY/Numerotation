@@ -77,7 +77,7 @@ export const prepareFullVehicleExportData = (vehiculesWithProprietaires: any[]) 
       "Année Fabrication": item.anneeFabrication || 'Non spécifiée',
       "Âge (années)": ageVehicule,
       "Capacité Assises": item.capaciteAssises || 0,
-      "Itinéraire": item.itineraire || 'Non spécifié',
+      "Itinéraire": item.itineraire?.nom || 'Non spécifié',
       
       // ADMINISTRATIF
       "Code Unique": item.codeUnique || 'Non généré',

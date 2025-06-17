@@ -24,7 +24,8 @@ import { ApiDataTable } from "@/components/api-data-table"
 import { usePaginatedApiCall, useApiMutation } from "@/hooks/use-api"
 import { getVehicules, createVehicule, updateVehicule, deleteVehicule } from "@/actions/vehicules"
 import { getProprietaires } from "@/actions/proprietaires"
-import type { Vehicule, CreateVehiculeForm, Proprietaire } from "@/types/api"
+import { getItineraires } from "@/actions/itineraires"
+import type { Vehicule, CreateVehiculeForm, Proprietaire, Itineraire } from "@/types/api"
 import { toast } from "sonner"
 import { formatPrice, getVehicleTypeDescription, calculateRegistrationPrice } from "@/lib/pricing-utils"
 
@@ -44,12 +45,17 @@ export default function VehiculesPage() {
     updateParams,
     refetch
   } = usePaginatedApiCall(getVehicules, { page: 1, limit: 10 })
-
   // Récupérer la liste des propriétaires pour le formulaire
   const {
     data: proprietaires,
     loading: proprietairesLoading
   } = usePaginatedApiCall(getProprietaires, { page: 1, limit: 100 })
+
+  // Récupérer la liste des itinéraires pour le formulaire
+  const {
+    data: itineraires,
+    loading: itinerairesLoading
+  } = usePaginatedApiCall(getItineraires, { page: 1, limit: 100 })
 
   // Wrappers pour les mutations afin de gérer les types correctement
   const createMutation = useApiMutation(async (params?: CreateVehiculeForm) => {
@@ -96,7 +102,6 @@ export default function VehiculesPage() {
       toast.error(errorMessage || "Une erreur est survenue")
     }
   }
-
   const handleEdit = (vehicule: Vehicule) => {
     setEditingVehicule(vehicule)
     setValue("proprietaireId", vehicule.proprietaireId)
@@ -107,7 +112,7 @@ export default function VehiculesPage() {
     setValue("numeroChassis", vehicule.numeroChassis)
     setValue("anneeFabrication", vehicule.anneeFabrication)
     setValue("capaciteAssises", vehicule.capaciteAssises)
-    setValue("itineraire", vehicule.itineraire)
+    setValue("itineraireId", vehicule.itineraireId)
     setIsDialogOpen(true)
   }
 
@@ -495,18 +500,34 @@ export default function VehiculesPage() {
                           <p className="text-sm text-red-600 mt-1">{errors.capaciteAssises.message}</p>
                         )}
                       </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="itineraire">Itinéraire *</Label>
-                      <Textarea
-                        id="itineraire"
-                        {...register("itineraire", { required: "L'itinéraire est requis" })}
-                        placeholder="Décrivez l'itinéraire ou la ligne de transport"
-                        rows={3}
+                    </div>                    <div>
+                      <Label htmlFor="itineraireId">Itinéraire *</Label>
+                      <Select
+                        value={watch("itineraireId") || ""}
+                        onValueChange={(value) => setValue("itineraireId", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionnez un itinéraire" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {itinerairesLoading ? (
+                            <SelectItem value="" disabled>Chargement...</SelectItem>
+                          ) : (
+                            itineraires?.map((itineraire) => (
+                              <SelectItem key={itineraire.id} value={itineraire.id}>
+                                {itineraire.nom}
+                                {itineraire.description && ` - ${itineraire.description}`}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <input
+                        type="hidden"
+                        {...register("itineraireId", { required: "L'itinéraire est requis" })}
                       />
-                      {errors.itineraire && (
-                        <p className="text-sm text-red-600 mt-1">{errors.itineraire.message}</p>
+                      {errors.itineraireId && (
+                        <p className="text-sm text-red-600 mt-1">{errors.itineraireId.message}</p>
                       )}
                     </div>
                   </CardContent>
@@ -624,10 +645,19 @@ export default function VehiculesPage() {
                 <div>
                   <Label className="font-semibold">Capacité</Label>
                   <p>{viewingVehicule.capaciteAssises} places assises</p>
-                </div>
-                <div>
+                </div>                <div>
                   <Label className="font-semibold">Itinéraire</Label>
-                  <p>{viewingVehicule.itineraire}</p>
+                  <p>{viewingVehicule.itineraire?.nom || "Itinéraire non spécifié"}</p>
+                  {viewingVehicule.itineraire?.description && (
+                    <p className="text-sm text-gray-600">{viewingVehicule.itineraire.description}</p>
+                  )}
+                  {(viewingVehicule.itineraire?.distance || viewingVehicule.itineraire?.dureeEstimee) && (
+                    <p className="text-sm text-gray-600">
+                      {viewingVehicule.itineraire.distance && `${viewingVehicule.itineraire.distance} km`}
+                      {viewingVehicule.itineraire.distance && viewingVehicule.itineraire.dureeEstimee && " - "}
+                      {viewingVehicule.itineraire.dureeEstimee && `${viewingVehicule.itineraire.dureeEstimee} min`}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label className="font-semibold">Code unique</Label>
