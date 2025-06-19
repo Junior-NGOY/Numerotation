@@ -11,12 +11,14 @@ function getApiBaseUrl(): string {
   // Supprimer le slash final s'il existe
   baseUrl = baseUrl.replace(/\/$/, '');
   
-  // Debug logging pour voir ce qui se passe
-  console.log('🔧 API Base URL Debug:', {
-    original: process.env.NEXT_PUBLIC_API_URL,
-    processed: baseUrl,
-    isLocal: baseUrl.includes('localhost')
-  });
+  // Debug logging seulement en développement
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔧 API Base URL Debug:', {
+      original: process.env.NEXT_PUBLIC_API_URL,
+      processed: baseUrl,
+      isLocal: baseUrl.includes('localhost')
+    });
+  }
   
   // Vérifier que l'URL est valide
   try {
@@ -63,13 +65,15 @@ export async function apiRequest<T>(
   
   const url = `${API_BASE_URL}${endpoint}`;
   
-  // Debug logging
-  console.log('🔍 API Request Debug:', {
-    API_BASE_URL,
-    endpoint,
-    finalUrl: url,
-    env: process.env.NEXT_PUBLIC_API_URL
-  });
+  // Debug logging seulement en développement
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 API Request Debug:', {
+      API_BASE_URL,
+      endpoint,
+      finalUrl: url,
+      env: process.env.NEXT_PUBLIC_API_URL
+    });
+  }
   
   const config: RequestInit = {
     headers: {
@@ -77,6 +81,8 @@ export async function apiRequest<T>(
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },
+    // Ajouter un timeout de 30 secondes
+    signal: AbortSignal.timeout(30000),
     ...options,
   };
 
@@ -84,17 +90,40 @@ export async function apiRequest<T>(
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // Si on ne peut pas parser le JSON, garder le message par défaut
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('API Request Error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('API Request Error:', error);
+    }
+    
+    let errorMessage = 'Une erreur inconnue s\'est produite';
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        errorMessage = 'La requête a expiré (timeout)';
+      } else if (error.message.includes('fetch')) {
+        errorMessage = 'Erreur de connexion au serveur';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     return {
       data: null as T,
-      error: error instanceof Error ? error.message : 'Une erreur inconnue s\'est produite',
+      error: errorMessage,
     };
   }
 }
@@ -115,6 +144,8 @@ export async function apiRequestFormData<T>(
       ...options.headers,
     },
     body: formData,
+    // Timeout plus long pour les uploads
+    signal: AbortSignal.timeout(60000),
     ...options,
   };
 
@@ -122,17 +153,40 @@ export async function apiRequestFormData<T>(
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // Si on ne peut pas parser le JSON, garder le message par défaut
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('API Request Error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('API Request Error:', error);
+    }
+    
+    let errorMessage = 'Une erreur inconnue s\'est produite';
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        errorMessage = 'L\'upload a expiré (timeout)';
+      } else if (error.message.includes('fetch')) {
+        errorMessage = 'Erreur de connexion au serveur';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     return {
       data: null as T,
-      error: error instanceof Error ? error.message : 'Une erreur inconnue s\'est produite',
+      error: errorMessage,
     };
   }
 }
