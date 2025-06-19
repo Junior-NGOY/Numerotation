@@ -34,7 +34,7 @@ export interface VerificationResponse {
 export async function verifyVehicleByCode(codeUnique: string): Promise<VerificationResponse> {
   try {
     const response = await apiRequest<VehicleVerificationData>(
-      `/verify/${codeUnique}`
+      `/api/v1/verify/${codeUnique}`
     );
 
     if (response.error) {
