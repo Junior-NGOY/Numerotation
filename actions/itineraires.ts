@@ -112,7 +112,7 @@ export interface ActiveItineraire {
 // Obtenir la liste des itinéraires actifs (pour les selects)
 export async function getActiveItineraires(): Promise<ApiResponse<ActiveItineraire[]>> {
   try {
-    const result = await apiRequest<ActiveItineraire[]>('/api/v1/itineraires/active');
+    const result = await apiRequest<ActiveItineraire[]>('/api/v1/itineraires/public/active');
     
     return result;
   } catch (error) {
