@@ -18,10 +18,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { ArrowLeft, Upload, Car, Plus, Edit, Trash2, Eye, Search } from "lucide-react"
+import { ArrowLeft, Upload, Car, Plus, Edit, Trash2, Eye, Search, FileText } from "lucide-react"
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
 import { ApiDataTable } from "@/components/api-data-table"
+import DocumentEditor from "@/components/document-editor"
 import { usePaginatedApiCall, useApiMutation } from "@/hooks/use-api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getVehicules, createVehicule, updateVehicule, deleteVehicule } from "@/actions/vehicules"
@@ -31,9 +32,9 @@ import type { Vehicule, CreateVehiculeForm, Proprietaire, Itineraire } from "@/t
 import { toast } from "sonner"
 import { formatPrice, getVehicleTypeDescription, calculateRegistrationPrice } from "@/lib/pricing-utils"
 
-export default function VehiculesPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingVehicule, setEditingVehicule] = useState<Vehicule | null>(null)
+  const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedVehicleType, setSelectedVehicleType] = useState<'BUS' | 'MINI_BUS' | 'TAXI' | null>(null)
   const [viewingVehicule, setViewingVehicule] = useState<Vehicule | null>(null)
@@ -468,14 +469,26 @@ export default function VehiculesPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="numeroImmatriculation">N° Immatriculation *</Label>
+                      <div>                        <Label htmlFor="numeroImmatriculation">N° Immatriculation * (6 caractères)</Label>
                         <Input
                           id="numeroImmatriculation"
                           {...register("numeroImmatriculation", { 
-                            required: "Le numéro d'immatriculation est requis" 
+                            required: "Le numéro d'immatriculation est requis",
+                            pattern: {
+                              value: /^[A-Z0-9\s]{6}$/i,
+                              message: "Le numéro d'immatriculation doit contenir exactement 6 caractères (lettres et chiffres)"
+                            }
                           })}
-                          placeholder="Ex: AB-123-CD"
+                          placeholder="Ex: 5518AQ"
+                          maxLength={7}
+                          style={{ textTransform: 'uppercase' }}
+                          onChange={(e) => {
+                            // Transformer en majuscules et supprimer les espaces
+                            const value = e.target.value.replace(/\s+/g, '').toUpperCase();
+                            e.target.value = value;
+                            // Déclencher la validation du formulaire
+                            register("numeroImmatriculation").onChange(e);
+                          }}
                         />
                         {errors.numeroImmatriculation && (
                           <p className="text-sm text-red-600 mt-1">{errors.numeroImmatriculation.message}</p>
@@ -528,9 +541,8 @@ export default function VehiculesPage() {
                           <p className="text-sm text-red-600 mt-1">{errors.capaciteAssises.message}</p>
                         )}
                       </div>
-                    </div>                    <div>
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="itineraireId">Itinéraire *</Label>
+                    </div>                    <div>                      <div className="flex items-center justify-between">
+                        <Label htmlFor="itineraireId">Itinéraire</Label>
                         <Link href="/itineraires">
                           <Button type="button" variant="outline" size="sm">
                             Gérer les itinéraires
@@ -539,7 +551,7 @@ export default function VehiculesPage() {
                       </div>
                       <Select
                         onValueChange={(value) => setValue("itineraireId", value)}
-                        required
+                        value={watch("itineraireId") || undefined}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Sélectionnez un itinéraire" />
@@ -576,16 +588,30 @@ export default function VehiculesPage() {
                       )}
                     </div>
                   </CardContent>
-                </Card>                {/* Téléversement de documents */}
-                <Card>
+                </Card>                {/* Téléversement/Gestion de documents */}                <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Documents du véhicule</CardTitle>
                     <CardDescription>
-                      Uploadez les documents relatifs au véhicule (carte rose, permis de conduire, etc.)
+                      {editingVehicule 
+                        ? 'Cliquez sur le bouton pour gérer les documents du véhicule'
+                        : 'Uploadez les documents relatifs au véhicule (carte rose, permis de conduire, etc.)'
+                      }
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {!editingVehicule && (
+                    {editingVehicule ? (
+                      // Mode édition: bouton pour ouvrir le gestionnaire dans un dialog séparé
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => setIsDocumentDialogOpen(true)}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Gérer les documents du véhicule
+                      </Button>
+                    ) : (
+                      // Mode création: utiliser FileUpload simple
                       <FileUpload
                         onFileSelect={setSelectedFiles}
                         onFileRemove={(index) => {
@@ -740,6 +766,28 @@ export default function VehiculesPage() {
                   </p>
                 </div>
               </div>
+            )}
+          </DialogContent>        </Dialog>
+
+        {/* Dialog séparé pour la gestion des documents */}
+        <Dialog open={isDocumentDialogOpen} onOpenChange={setIsDocumentDialogOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Gestion des Documents</DialogTitle>
+              <DialogDescription>
+                {editingVehicule && 
+                  `Gérez les documents du véhicule ${editingVehicule.marque} ${editingVehicule.modele} (${editingVehicule.numeroImmatriculation})`
+                }
+              </DialogDescription>
+            </DialogHeader>
+            
+            {editingVehicule && (
+              <DocumentEditor
+                entityType="vehicule"
+                entityId={editingVehicule.id}
+                entityName={`${editingVehicule.marque} ${editingVehicule.modele} (${editingVehicule.numeroImmatriculation})`}
+                compact={false}
+              />
             )}
           </DialogContent>
         </Dialog>

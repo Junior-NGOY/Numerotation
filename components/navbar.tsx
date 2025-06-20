@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { LogOut, BarChart3, Users, Wrench } from "lucide-react"
+import { LogOut, BarChart3, Users, FileText } from "lucide-react"
 import Link from "next/link"
 
 export function Navbar() {
@@ -29,26 +29,19 @@ export function Navbar() {
                 </Button>
               </Link>
 
+              <Link href="/documents/manager">
+                <Button variant="ghost" size="sm">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gestionnaire Documents
+                </Button>
+              </Link>
+
               {user.role === "ADMIN" && (
                 <>
                   <Link href="/utilisateurs">
                     <Button variant="ghost" size="sm">
                       <Users className="h-4 w-4 mr-2" />
                       Utilisateurs
-                    </Button>
-                  </Link>
-                  
-                  <Link href="/diagnostic">
-                    <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
-                      <Wrench className="h-4 w-4 mr-2" />
-                      Diagnostic
-                    </Button>
-                  </Link>
-                  
-                  <Link href="/storage">
-                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
-                      <Wrench className="h-4 w-4 mr-2" />
-                      Stockage
                     </Button>
                   </Link>
                 </>

@@ -18,19 +18,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { ArrowLeft, Upload, User, Plus, Edit, Trash2, Eye, Search } from "lucide-react"
+import { ArrowLeft, Upload, User, Plus, Edit, Trash2, Eye, Search, FileText } from "lucide-react"
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
 import { ApiDataTable } from "@/components/api-data-table"
+import DocumentEditor from "@/components/document-editor"
 import { usePaginatedApiCall, useApiMutation } from "@/hooks/use-api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getProprietaires, createProprietaire, updateProprietaire, deleteProprietaire } from "@/actions/proprietaires"
 import type { Proprietaire, CreateProprietaireForm } from "@/types/api"
 import { toast } from "sonner"
 
-export default function ProprietairesPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+export default function ProprietairesPage() {  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProprietaire, setEditingProprietaire] = useState<Proprietaire | null>(null)
+  const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
@@ -362,24 +363,37 @@ export default function ProprietairesPage() {
                           <p className="text-sm text-red-600 mt-1">{errors.dateDelivrance.message}</p>
                         )}
                       </div>
+                    </div>                    {/* Upload/Gestion de documents */}
+                    <div className="border-t pt-4">
+                      <h4 className="font-medium mb-3">Documents du propriétaire</h4>
+                      {editingProprietaire ? (
+                        // Mode édition: bouton pour ouvrir le gestionnaire
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          className="w-full"
+                          onClick={() => setIsDocumentDialogOpen(true)}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Gérer les documents du propriétaire
+                        </Button>
+                      ) : (
+                        // Mode création: utiliser FileUpload simple
+                        <FileUpload
+                          onFileSelect={setSelectedFiles}
+                          onFileRemove={(index) => {
+                            setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+                          }}
+                          selectedFiles={selectedFiles}
+                          accept="image/*,.pdf"
+                          multiple={false}
+                          maxFiles={1}
+                          maxSize={10}
+                          label="Scan de la pièce d'identité (optionnel)"
+                          description="Glissez-déposez une image ou PDF de la pièce d'identité"
+                        />
+                      )}
                     </div>
-
-                    {/* Upload de la pièce d'identité */}
-                    {!editingProprietaire && (
-                      <FileUpload
-                        onFileSelect={setSelectedFiles}
-                        onFileRemove={(index) => {
-                          setSelectedFiles(prev => prev.filter((_, i) => i !== index))
-                        }}
-                        selectedFiles={selectedFiles}
-                        accept="image/*,.pdf"
-                        multiple={false}
-                        maxFiles={1}
-                        maxSize={10}
-                        label="Scan de la pièce d'identité (optionnel)"
-                        description="Glissez-déposez une image ou PDF de la pièce d'identité"
-                      />
-                    )}
                   </CardContent>
                 </Card>
 
@@ -441,8 +455,30 @@ export default function ProprietairesPage() {
               onPageChange={handlePageChange}
               onLimitChange={handleLimitChange}
             />
-          </CardContent>
-        </Card>
+          </CardContent>        </Card>
+
+        {/* Dialog séparé pour la gestion des documents */}
+        <Dialog open={isDocumentDialogOpen} onOpenChange={setIsDocumentDialogOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Gestion des Documents</DialogTitle>
+              <DialogDescription>
+                {editingProprietaire && 
+                  `Gérez les documents du propriétaire ${editingProprietaire.prenom} ${editingProprietaire.nom}`
+                }
+              </DialogDescription>
+            </DialogHeader>
+            
+            {editingProprietaire && (
+              <DocumentEditor
+                entityType="proprietaire"
+                entityId={editingProprietaire.id}
+                entityName={`${editingProprietaire.prenom} ${editingProprietaire.nom}`}
+                compact={false}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthGuard>
   )

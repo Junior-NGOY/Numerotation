@@ -33,6 +33,11 @@ export async function uploadDocument(
   return apiRequestFormData<Document>('/api/v1/documents/upload', formData);
 }
 
+// Uploader un document avec FormData (pour le composant DocumentEditor)
+export async function uploadDocumentFormData(formData: FormData): Promise<ApiResponse<Document>> {
+  return apiRequestFormData<Document>('/api/v1/documents/upload', formData);
+}
+
 // Obtenir tous les documents avec pagination et filtres
 export async function getDocuments(params: SearchParams = {}): Promise<PaginatedResponse<Document>> {
   const searchParams = new URLSearchParams();
