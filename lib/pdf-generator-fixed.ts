@@ -278,20 +278,44 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
     // Ligne de séparation officielle
   doc.setDrawColor(0, 0, 0)
   doc.setLineWidth(1)
-  doc.line(15, headerHeight, pageWidth - 15, headerHeight)
-    // === ENCADRÉ FBN-BANK ===
+  doc.line(15, headerHeight, pageWidth - 15, headerHeight)  // === ENCADRÉ FBN-BANK À DEUX COLONNES ===
   const bankBoxY = headerHeight + 8
-  const bankBoxHeight = 12
+  const bankBoxHeight = 20  // Augmenté pour une meilleure visibilité
   const bankBoxWidth = pageWidth - 30
+  const col1Width = bankBoxWidth * 0.2  // 20% pour VOLET A
+  const col2Width = bankBoxWidth * 0.8  // 80% pour les informations bancaires
   
-  // Dessiner le cadre
+  // Dessiner le cadre principal
   doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.5)
+  doc.setLineWidth(1)
   doc.rect(15, bankBoxY, bankBoxWidth, bankBoxHeight)
-    // Texte dans l'encadré avec barre verticale
-  doc.setFontSize(9)
+  
+  // Dessiner la ligne de séparation verticale entre les colonnes
+  doc.setLineWidth(0.5)
+  doc.line(15 + col1Width, bankBoxY, 15 + col1Width, bankBoxY + bankBoxHeight)
+  
+  // COLONNE 1 - VOLET A (20% de l'espace)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
   doc.setTextColor(0, 0, 0)
-  doc.text('VOLET A | à verser à FBN-BANK: 00014-25000-2042090896316 | CDF', pageWidth / 2, bankBoxY + 7, { align: 'center' })    // === TITRE DU DOCUMENT ===
+  doc.text('VOLET A', 15 + col1Width/2, bankBoxY + bankBoxHeight/2, { align: 'center', baseline: 'middle' })
+  // COLONNE 2 - Informations bancaires (80% de l'espace)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)  // Taille augmentée de 10 à 11
+  doc.setTextColor(0, 0, 0)
+  
+  // Position de la marge droite de la colonne 2
+  const col2RightMargin = 15 + bankBoxWidth - 5  // 5px de marge depuis le bord droit du cadre
+  
+  // Première ligne dans la colonne 2 - alignée à droite
+  doc.text('A verser à FBN-BANK : 00014-25000-2042090896316 | CDF 90%', col2RightMargin, bankBoxY + 8, { align: 'right' })
+  
+  // Deuxième ligne dans la colonne 2 - alignée à droite (interligne réduit)
+  doc.setFontSize(10)  // Taille augmentée de 9 à 10
+  doc.text('10% retenus à la source pour les services', col2RightMargin, bankBoxY + 14, { align: 'right' })
+  
+  // Remettre la police normale pour la suite
+  doc.setFont('helvetica', 'normal')// === TITRE DU DOCUMENT ===
   doc.setFontSize(16)
   doc.setTextColor(0, 0, 0)
   doc.text(`NOTE DE PERCEPTION N° ${vehiculeData.codeUnique || 'N/A'}`, pageWidth / 2, bankBoxY + bankBoxHeight + 12, { align: 'center' })
@@ -475,31 +499,21 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.line(15, currentY, pageWidth - 15, currentY)
   
   currentY += 8
-  
-  // Pied de page avec trois signatures : "le redevable | la Direction | PPU"
+    // Pied de page avec deux signatures : "Redevable | PPU"
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)
-    // Calculer les positions pour une répartition équitable
-  const footerWidth = pageWidth - 40  // Marges de 20 de chaque côté
-  const sectionWidth = footerWidth / 3
   
-  // Position X pour chaque section - mieux équilibrées
-  const chefServiceX = 25  // Chef de Service à gauche
-  const redevableX = 20 + (footerWidth / 2) - 25  // Redevable au centre
-  const ppuX = pageWidth - 60  // P.P.U à droite
+  // Position X pour les deux sections
+  const redevableX = 25  // Redevable à l'extrême gauche
+  const ppuX = pageWidth - 60  // P.P.U à l'extrême droite
   
-  // Chef de Service de Transport Urbain (gauche)
-  doc.text('Chef de Service de', chefServiceX, currentY)
-  doc.text('Transport Urbain', chefServiceX, currentY + 5)
-  doc.text('____________________', chefServiceX, currentY + 15)
-  
-  // Redevable (centre)
+  // Redevable (extrême gauche)
   doc.text('Redevable', redevableX, currentY)
   doc.text('____________________', redevableX, currentY + 15)
   
-  // P.P.U (droite)
+  // P.P.U (extrême droite)
   doc.text('P.P.U', ppuX, currentY)
-  doc.text('____________________', ppuX, currentY + 15)  // Informations techniques en bas
+  doc.text('____________________', ppuX, currentY + 15)
   currentY += 23
   doc.setFontSize(8)
   doc.setTextColor(100, 100, 100)
