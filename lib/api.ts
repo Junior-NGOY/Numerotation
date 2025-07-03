@@ -32,6 +32,26 @@ function getApiBaseUrl(): string {
 
 const API_BASE_URL = getApiBaseUrl();
 
+// Configuration des timeouts
+const DEFAULT_TIMEOUT = 30000; // 30 secondes
+const UPLOAD_TIMEOUT = 60000; // 60 secondes pour les uploads
+
+// Fonction utilitaire pour créer un timeout compatible avec tous les navigateurs
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  // Vérifier si AbortSignal.timeout est disponible (navigateurs modernes)
+  if (typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs);
+  }
+  
+  // Fallback pour les navigateurs plus anciens
+  const controller = new AbortController();
+  setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  
+  return controller.signal;
+}
+
 import { ApiResponse, PaginatedResponse } from '@/types/api';
 
 // Fonction utilitaire pour récupérer le token d'authentification
@@ -81,8 +101,8 @@ export async function apiRequest<T>(
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },
-    // Ajouter un timeout de 30 secondes
-    signal: AbortSignal.timeout(30000),
+    // Ajouter un timeout de 30 secondes compatible avec tous les navigateurs
+    signal: createTimeoutSignal(DEFAULT_TIMEOUT),
     ...options,
   };
 
@@ -144,8 +164,8 @@ export async function apiRequestFormData<T>(
       ...options.headers,
     },
     body: formData,
-    // Timeout plus long pour les uploads
-    signal: AbortSignal.timeout(60000),
+    // Timeout plus long pour les uploads, compatible avec tous les navigateurs
+    signal: createTimeoutSignal(UPLOAD_TIMEOUT),
     ...options,
   };
 
