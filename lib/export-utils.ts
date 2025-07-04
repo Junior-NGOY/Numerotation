@@ -167,59 +167,268 @@ export const prepareFullProprietaireExportData = (proprietaires: any[]) => {
   }))
 }
 
-// Générer un nom de fichier intelligent basé sur les données
-export const generateExportFilename = (
-  type: 'vehicules' | 'proprietaires' | 'rapport-complet' | 'synthese',
-  options?: {
-    dateDebut?: string,
-    dateFin?: string,
-    typeVehicule?: string,
-    region?: string
-  }
-): string => {
-  const today = new Date().toISOString().split('T')[0]
-  let filename = `${type}_${today}`
-  
-  if (options?.dateDebut && options?.dateFin) {
-    filename += `_periode_${options.dateDebut}_au_${options.dateFin}`
-  }
-  
-  if (options?.typeVehicule) {
-    filename += `_${options.typeVehicule.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
-  }
-  
-  if (options?.region) {
-    filename += `_${options.region.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
-  }
-  
-  return filename
+// Interface pour les données de statistiques d'export
+export interface DashboardExportData {
+  stats: {
+    totalVehicules: number;
+    totalProprietaires: number;
+    totalUtilisateurs: number;
+    totalDocuments: number;
+    revenusTotal: number;
+  };
+  vehicleStats: Array<{
+    category: string;
+    count: number;
+    revenue: number;
+    percentage: number;
+  }>;
+  revenueEvolution: Array<{
+    date: string;
+    total: number;
+    Bus: number;
+    'Mini Bus': number;
+    Taxi: number;
+  }>;
+  period: 'day' | 'week' | 'month';
+  generatedAt: string;
 }
 
-// Valider les données avant export
-export const validateExportData = (data: any[]): { isValid: boolean, errors: string[] } => {
-  const errors: string[] = []
+// Exporter les statistiques au format Excel
+export const exportStatisticsToExcel = async (data: DashboardExportData) => {
+  try {
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    
+    // Informations du classeur
+    workbook.creator = 'Vehicle Registration System';
+    workbook.created = new Date();
+    
+    // 1. Feuille de résumé
+    const summarySheet = workbook.addWorksheet('Résumé');
+    summarySheet.addRow(['STATISTIQUES GÉNÉRALES - ' + getPeriodLabel(data.period).toUpperCase()]);
+    summarySheet.addRow(['Généré le:', data.generatedAt]);
+    summarySheet.addRow([]);
+    
+    summarySheet.addRow(['Indicateurs clés', 'Valeur']);
+    summarySheet.addRow(['Total véhicules', data.stats.totalVehicules]);
+    summarySheet.addRow(['Total propriétaires', data.stats.totalProprietaires]);
+    summarySheet.addRow(['Total utilisateurs', data.stats.totalUtilisateurs]);
+    summarySheet.addRow(['Total documents', data.stats.totalDocuments]);
+    summarySheet.addRow(['Revenus total', formatPrice(data.stats.revenusTotal)]);
+    
+    // Style pour l'en-tête
+    summarySheet.getRow(1).font = { bold: true, size: 14 };
+    summarySheet.getRow(4).font = { bold: true };
+    
+    // 2. Feuille des statistiques par type de véhicule
+    const vehicleSheet = workbook.addWorksheet('Véhicules par type');
+    vehicleSheet.addRow(['RÉPARTITION PAR TYPE DE VÉHICULE']);
+    vehicleSheet.addRow([]);
+    vehicleSheet.addRow(['Type', 'Nombre', 'Revenus', 'Pourcentage']);
+    
+    data.vehicleStats.forEach(stat => {
+      vehicleSheet.addRow([
+        stat.category,
+        stat.count,
+        formatPrice(stat.revenue),
+        `${stat.percentage.toFixed(1)}%`
+      ]);
+    });
+    
+    vehicleSheet.getRow(1).font = { bold: true, size: 14 };
+    vehicleSheet.getRow(3).font = { bold: true };
+    
+    // 3. Feuille de l'évolution des revenus
+    const revenueSheet = workbook.addWorksheet('Évolution revenus');
+    revenueSheet.addRow(['ÉVOLUTION DES REVENUS']);
+    revenueSheet.addRow([]);
+    revenueSheet.addRow(['Date', 'Total', 'Bus', 'Mini Bus', 'Taxi']);
+    
+    data.revenueEvolution.forEach(item => {
+      revenueSheet.addRow([
+        item.date,
+        formatPrice(item.total),
+        formatPrice(item.Bus),
+        formatPrice(item['Mini Bus']),
+        formatPrice(item.Taxi)
+      ]);
+    });
+    
+    revenueSheet.getRow(1).font = { bold: true, size: 14 };
+    revenueSheet.getRow(3).font = { bold: true };
+    
+    // Ajuster la largeur des colonnes
+    [summarySheet, vehicleSheet, revenueSheet].forEach(sheet => {
+      sheet.columns.forEach(column => {
+        column.width = 20;
+      });
+    });
+    
+    // Télécharger le fichier
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    const filename = generateExportFilename('statistiques', {
+      period: data.period,
+      format: 'excel'
+    });
+    
+    downloadFile(blob, `${filename}.xlsx`);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Erreur lors de l\'export Excel:', error);
+    return { success: false, error: 'Erreur lors de la génération du fichier Excel' };
+  }
+};
+
+// Exporter les statistiques au format PDF
+export const exportStatisticsToPDF = async (data: DashboardExportData) => {
+  try {
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+    
+    const doc = new jsPDF();
+    let yPosition = 20;
+    
+    // En-tête du document
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Statistiques du Système d\'Enregistrement', 20, yPosition);
+    yPosition += 10;
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Période: ${getPeriodLabel(data.period)}`, 20, yPosition);
+    yPosition += 8;
+    doc.text(`Généré le: ${data.generatedAt}`, 20, yPosition);
+    yPosition += 20;
+    
+    // 1. Statistiques générales
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Résumé général', 20, yPosition);
+    yPosition += 10;
+    
+    const generalStats = [
+      ['Total véhicules', data.stats.totalVehicules.toString()],
+      ['Total propriétaires', data.stats.totalProprietaires.toString()],
+      ['Total utilisateurs', data.stats.totalUtilisateurs.toString()],
+      ['Total documents', data.stats.totalDocuments.toString()],
+      ['Revenus total', formatPrice(data.stats.revenusTotal)]
+    ];
+    
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Indicateur', 'Valeur']],
+      body: generalStats,
+      margin: { left: 20 },
+      styles: { fontSize: 10 }
+    });
+    
+    yPosition = (doc as any).lastAutoTable.finalY + 20;
+    
+    // 2. Répartition par type de véhicule
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Répartition par type de véhicule', 20, yPosition);
+    yPosition += 10;
+    
+    const vehicleStatsData = data.vehicleStats.map(stat => [
+      stat.category,
+      stat.count.toString(),
+      formatPrice(stat.revenue),
+      `${stat.percentage.toFixed(1)}%`
+    ]);
+    
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Type', 'Nombre', 'Revenus', 'Pourcentage']],
+      body: vehicleStatsData,
+      margin: { left: 20 },
+      styles: { fontSize: 10 }
+    });
+    
+    // Nouvelle page pour l'évolution des revenus si nécessaire
+    if ((doc as any).lastAutoTable.finalY > 250) {
+      doc.addPage();
+      yPosition = 20;
+    } else {
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+    }
+    
+    // 3. Évolution des revenus
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Évolution des revenus', 20, yPosition);
+    yPosition += 10;
+    
+    const revenueData = data.revenueEvolution.slice(0, 10).map(item => [
+      item.date,
+      formatPrice(item.total),
+      formatPrice(item.Bus),
+      formatPrice(item['Mini Bus']),
+      formatPrice(item.Taxi)
+    ]);
+    
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Date', 'Total', 'Bus', 'Mini Bus', 'Taxi']],
+      body: revenueData,
+      margin: { left: 20 },
+      styles: { fontSize: 10 }
+    });
+    
+    // Télécharger le PDF
+    const filename = generateExportFilename('statistiques', {
+      period: data.period,
+      format: 'pdf'
+    });
+    
+    doc.save(`${filename}.pdf`);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Erreur lors de l\'export PDF:', error);
+    return { success: false, error: 'Erreur lors de la génération du fichier PDF' };
+  }
+};
+
+// Fonction utilitaire pour obtenir le label de la période
+const getPeriodLabel = (period: 'day' | 'week' | 'month'): string => {
+  switch (period) {
+    case 'day': return 'Journalier';
+    case 'week': return 'Hebdomadaire';
+    case 'month': return 'Mensuel';
+    default: return 'Inconnu';
+  }
+};
+
+// Générer un nom de fichier pour les exports de statistiques
+const generateExportFilename = (type: string, options: { 
+  period?: string; 
+  format?: string; 
+}): string => {
+  const today = new Date().toISOString().split('T')[0];
+  let filename = `${type}_${options.period || 'general'}_${today}`;
   
-  if (!Array.isArray(data)) {
-    errors.push('Les données doivent être un tableau')
-    return { isValid: false, errors }
+  if (options.format) {
+    filename += `_${options.format}`;
   }
   
-  if (data.length === 0) {
-    errors.push('Aucune donnée à exporter')
-    return { isValid: false, errors }
-  }
-  
-  // Vérifier que tous les éléments ont au moins une propriété
-  const invalidItems = data.filter(item => 
-    !item || typeof item !== 'object' || Object.keys(item).length === 0
-  )
-  
-  if (invalidItems.length > 0) {
-    errors.push(`${invalidItems.length} élément(s) invalide(s) détecté(s)`)
-  }
-  
-  return { 
-    isValid: errors.length === 0, 
-    errors 
-  }
-}
+  return filename;
+};
+
+// Fonction utilitaire pour télécharger un fichier
+const downloadFile = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};

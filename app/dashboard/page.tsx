@@ -17,7 +17,9 @@ import {
   Users,
   Building,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   getDashboardStats, 
@@ -27,6 +29,8 @@ import {
 } from '@/actions/dashboard';
 import { DashboardStats } from '@/types/api';
 import { formatCurrency } from '@/lib/pricing-utils';
+import { exportStatisticsToExcel, exportStatisticsToPDF, DashboardExportData } from '@/lib/export-utils';
+import StatisticsExportPanel from '@/components/statistics-export-panel';
 
 interface VehicleStats {
   category: string;
@@ -48,7 +52,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [vehicleStats, setVehicleStats] = useState<VehicleStats[]>([]);
   const [revenueEvolution, setRevenueEvolution] = useState<RevenueData[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any>(null);  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'day' | 'month'>('week');
+  const [recentActivity, setRecentActivity] = useState<any>(null);  
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'day' | 'month'>('week');
   const [selectedDays, setSelectedDays] = useState(30);
   const loadData = async () => {
     setLoading(true);
@@ -114,6 +119,29 @@ export default function DashboardPage() {
     }
   };
 
+  // Fonctions d'export
+  const prepareExportData = (): DashboardExportData => {
+    return {
+      stats: {
+        totalVehicules: stats?.general?.totalVehicules || 0,
+        totalProprietaires: stats?.general?.totalProprietaires || 0,
+        totalUtilisateurs: stats?.general?.totalUsers || 0,
+        totalDocuments: stats?.general?.totalDocuments || 0,
+        revenusTotal: stats?.general?.totalRevenue || 0
+      },
+      vehicleStats: vehicleStats,
+      revenueEvolution: revenueEvolution,
+      period: selectedPeriod,
+      generatedAt: new Date().toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -131,11 +159,20 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900">Tableau de Bord</h1>
           <p className="text-gray-600 mt-1">Vue d'ensemble des enregistrements de véhicules</p>
         </div>
-        <Button onClick={loadData} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Actualiser
-        </Button>
-      </div>      {/* Statistiques générales */}
+        <div className="flex space-x-2">
+          <Button onClick={loadData} disabled={loading} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </Button>
+        </div>
+      </div>
+
+      {/* Section d'export */}
+      <StatisticsExportPanel 
+        exportData={prepareExportData()}
+        onPeriodChange={setSelectedPeriod}
+        currentPeriod={selectedPeriod}
+      />      {/* Statistiques générales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
           <CardHeader className="pb-2">

@@ -469,18 +469,18 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>                        <Label htmlFor="numeroImmatriculation">N° Immatriculation * (6 caractères)</Label>
+                      <div>                        <Label htmlFor="numeroImmatriculation">N° Immatriculation * (8 caractères)</Label>
                         <Input
                           id="numeroImmatriculation"
                           {...register("numeroImmatriculation", { 
                             required: "Le numéro d'immatriculation est requis",
                             pattern: {
-                              value: /^[A-Z0-9\s]{6}$/i,
-                              message: "Le numéro d'immatriculation doit contenir exactement 6 caractères (lettres et chiffres)"
+                              value: /^[A-Z0-9]{8}$/i,
+                              message: "Le numéro d'immatriculation doit contenir exactement 8 caractères (lettres et chiffres)"
                             }
                           })}
-                          placeholder="Ex: 5518AQ"
-                          maxLength={7}
+                          placeholder="Ex: 5518AQ12"
+                          maxLength={8}
                           style={{ textTransform: 'uppercase' }}
                           onChange={(e) => {
                             // Transformer en majuscules et supprimer les espaces
