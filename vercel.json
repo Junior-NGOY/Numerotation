@@ -4,12 +4,6 @@
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://votre-backend-url.com/api/v1"
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://votre-backend-url.com/api/$1"
-    }
-  ]
+    "NEXT_PUBLIC_API_URL": "https://web-production-a371d.up.railway.app"
+  }
 }

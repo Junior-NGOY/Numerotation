@@ -34,6 +34,12 @@ export async function apiRequest<T>(
   const token = getAuthToken();
   
   const url = `${API_BASE_URL}${endpoint}`;
+  
+  // Debug: afficher l'URL construite
+  console.log('🔗 URL construite:', url);
+  console.log('🔗 API_BASE_URL:', API_BASE_URL);
+  console.log('🔗 endpoint:', endpoint);
+  
   const config: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
