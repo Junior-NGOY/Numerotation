@@ -1,6 +1,21 @@
 // Configuration de base pour les appels API
-//const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+import { getApiBaseUrl } from './api-config';
+
+// Fonction pour obtenir l'URL API avec fallback sécurisé
+function getSecureApiBaseUrl(): string {
+  try {
+    return getApiBaseUrl();
+  } catch (error) {
+    console.warn('Erreur lors de la récupération de l\'URL API, utilisation du fallback:', error);
+    // Fallback direct pour Vercel
+    if (typeof window !== 'undefined' && window.location.hostname === 'numerotation.vercel.app') {
+      return 'https://web-production-a371d.up.railway.app';
+    }
+    return 'https://web-production-a371d.up.railway.app';
+  }
+}
+
+const API_BASE_URL = getSecureApiBaseUrl();
 
 import { ApiResponse, PaginatedResponse } from '@/types/api';
 
@@ -33,12 +48,23 @@ export async function apiRequest<T>(
 ): Promise<ApiResponse<T>> {
   const token = getAuthToken();
   
-  const url = `${API_BASE_URL}${endpoint}`;
+  // S'assurer que API_BASE_URL a le bon format
+  let baseUrl = API_BASE_URL;
+  if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`;
+  }
   
-  // Debug: afficher l'URL construite
-  console.log('🔗 URL construite:', url);
-  console.log('🔗 API_BASE_URL:', API_BASE_URL);
-  console.log('🔗 endpoint:', endpoint);
+  const url = `${baseUrl}${endpoint}`;
+  
+  // Debug: afficher toutes les informations importantes
+  console.log('🔗 Configuration API Debug:');
+  console.log('   - NODE_ENV:', process.env.NODE_ENV);
+  console.log('   - window.location.hostname:', typeof window !== 'undefined' ? window.location.hostname : 'server-side');
+  console.log('   - NEXT_PUBLIC_API_URL (env):', process.env.NEXT_PUBLIC_API_URL);
+  console.log('   - API_BASE_URL (brute):', API_BASE_URL);
+  console.log('   - baseUrl (normalisée):', baseUrl);
+  console.log('   - endpoint:', endpoint);
+  console.log('   - URL finale:', url);
   
   const config: RequestInit = {
     headers: {
@@ -76,7 +102,13 @@ export async function apiRequestFormData<T>(
 ): Promise<ApiResponse<T>> {
   const token = getAuthToken();
   
-  const url = `${API_BASE_URL}${endpoint}`;
+  // S'assurer que API_BASE_URL a le bon format
+  let baseUrl = API_BASE_URL;
+  if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  
+  const url = `${baseUrl}${endpoint}`;
   const config: RequestInit = {
     method: 'POST',
     headers: {

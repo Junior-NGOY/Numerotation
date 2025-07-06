@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Middleware minimal - pas de CSP stricte pour éviter les problèmes d'hébergement
+  // Middleware minimal - aucune CSP pour éviter les problèmes
   const response = NextResponse.next()
   
-  // En-têtes de sécurité basiques uniquement
-  response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('X-Content-Type-Options', 'nosniff')
+  // Aucun en-tête de sécurité pour le moment
+  // response.headers.set('X-Frame-Options', 'DENY')
+  // response.headers.set('X-Content-Type-Options', 'nosniff')
   
   return response
 }

@@ -3,7 +3,29 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
+  "functions": {
+    "app/api/**/*.js": {
+      "maxDuration": 10
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": ""
+        }
+      ]
+    }
+  ],
   "env": {
+    "NODE_ENV": "production",
     "NEXT_PUBLIC_API_URL": "https://web-production-a371d.up.railway.app"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_URL": "https://web-production-a371d.up.railway.app"
+    }
   }
 }

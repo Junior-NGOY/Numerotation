@@ -9,9 +9,19 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // CSP désactivé pour le développement - évite les problèmes de connexion
+  // CSP complètement désactivé pour éviter les problèmes
   async headers() {
-    return []
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: ''
+          }
+        ]
+      }
+    ]
   },
 }
 
