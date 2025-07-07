@@ -321,35 +321,32 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.text(`NOTE DE PERCEPTION N° ${vehiculeData.codeUnique || 'N/A'}`, pageWidth / 2, bankBoxY + bankBoxHeight + 12, { align: 'center' })
   
   // === TEXTES LÉGAUX ===
-  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
   doc.setTextColor(0, 0, 0)
   doc.text('Textes Légaux : - Arrêté Urbain N°011/Bur-Mairie/Ville/Lshi/2025 du 11 Juin 2025', pageWidth / 2, bankBoxY + bankBoxHeight + 22, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
     
   // === CORPS DU DOCUMENT ===
-  let currentY = headerHeight + 55
+  let currentY = headerHeight + 65
     // SECTION I. PROPRIÉTAIRE avec encadré simple
   doc.setFontSize(12)
   doc.setTextColor(0, 0, 0)
   doc.text('I. INFORMATIONS DU PROPRIÉTAIRE', 20, currentY)
   // Contenu propriétaire avec alignement structuré
   doc.setFontSize(10)
-  currentY += 12
+  currentY += 10
     // Définir les colonnes pour un alignement parfait avec données rapprochées
   const labelCol1 = 20     // Première colonne labels
   const dataCol1 = 70      // Première colonne données (plus près)
   const labelCol2 = 120    // Deuxième colonne labels
   const dataCol2 = 155     // Deuxième colonne données (plus près)
   
-  // Ligne 1: Nom et Prénom - Téléphone
+  // Ligne 1: Nom et Prénom
   doc.setTextColor(25, 118, 210) // Bleu professionnel pour les labels
   doc.text('Nom et Prénom :', labelCol1, currentY)
   doc.setTextColor(0, 0, 0) // Noir pour les données
   doc.text(`${proprietaireData.prenom || ''} ${proprietaireData.nom || ''}`, dataCol1, currentY)
-  
-  doc.setTextColor(25, 118, 210)
-  doc.text('Téléphone :', labelCol2, currentY)
-  doc.setTextColor(0, 0, 0)
-  doc.text(`${proprietaireData.telephone || 'Non spécifié'}`, dataCol2, currentY)
   currentY += 6
   
   // Ligne 2: Adresse complète (sur toute la largeur)
@@ -360,7 +357,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   
   currentY += 6
   
-  // Ligne 3: Type de pièce et Numéro - Lieu de délivrance
+  // Ligne 3: Type de pièce - Lieu de délivrance
   doc.setTextColor(25, 118, 210)
   doc.text('Type de pièce :', labelCol1, currentY)
   doc.setTextColor(0, 0, 0)
@@ -370,19 +367,24 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.text('Délivrée à :', labelCol2, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${proprietaireData.lieuDelivrance || 'N/A'}`, dataCol2, currentY)
-    currentY += 8
+    currentY += 6
   
-  // Ligne 4: Numéro de pièce
+  // Ligne 4: Numéro de pièce - Téléphone
   doc.setTextColor(25, 118, 210)
   doc.text('Numéro de pièce :', labelCol1, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${proprietaireData.numeroPiece || 'N/A'}`, dataCol1, currentY)
   
+  doc.setTextColor(25, 118, 210)
+  doc.text('Téléphone :', labelCol2, currentY)
+  doc.setTextColor(0, 0, 0)
+  doc.text(`${proprietaireData.telephone || 'Non spécifié'}`, dataCol2, currentY)
+  
   currentY += 10    // SECTION II. VÉHICULE
   doc.setFontSize(12);  doc.text('II. CARACTÉRISTIQUES DU VÉHICULE', 20, currentY)
   // Contenu véhicule avec alignement structuré
   doc.setFontSize(10)
-  currentY += 12
+  currentY += 10
     // Utiliser les mêmes colonnes pour la cohérence avec données rapprochées
   const vLabelCol1 = 20     // Première colonne labels
   const vDataCol1 = 70      // Première colonne données (plus près)
@@ -412,7 +414,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.setTextColor(0, 0, 0)
   doc.text(`${vehiculeData.anneeFabrication || 'N/A'}`, vDataCol2, currentY)
   
-  currentY += 8
+  currentY += 7
   
   // Ligne 3: Numéro d'immatriculation - Nombre de places
   doc.setTextColor(25, 118, 210)
@@ -424,7 +426,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.text('Nombre de places :', vLabelCol2, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${vehiculeData.capaciteAssises || '0'}`, vDataCol2, currentY)
-  currentY += 8
+  currentY += 7
     // Ligne 4: Numéro de châssis (sur toute la largeur car peut être long)
   doc.setTextColor(25, 118, 210)
   doc.text('N° de châssis :', vLabelCol1, currentY)
@@ -435,7 +437,7 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.setFontSize(12)
   doc.setTextColor(0, 0, 0)
   doc.text('III. INFORMATIONS ADMINISTRATIVES', 20, currentY)
-  currentY += 12
+  currentY += 10
   doc.setFontSize(10)
     // Utiliser les mêmes colonnes pour la cohérence avec données rapprochées
   const aLabelCol1 = 20     // Première colonne labels
@@ -452,14 +454,14 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.text('Code unique :', aLabelCol2, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${vehiculeData.codeUnique || 'N/A'}`, aDataCol2, currentY)
-  currentY += 8
+  currentY += 7
   
   // Ligne 2: Nous disons (prix en lettres)
   doc.setTextColor(25, 118, 210)
   doc.text('Nous disons :', aLabelCol1, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${formatPrixEnLettres(vehiculeData.prixEnregistrement)}`, aDataCol1, currentY)
-  currentY += 8
+  currentY += 7
   
   // Ligne 3: Année enregistrement
   doc.setTextColor(25, 118, 210)
@@ -486,14 +488,19 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.setTextColor(100, 100, 100)
   doc.text(`Date: ${new Date().toLocaleDateString("fr-FR")}`, qrX + qrSize/2, qrY + qrSize + 11, { align: 'center' })
   
-  currentY += 12
-  doc.setFontSize(9)
+  currentY += 10
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 102, 204) // Même couleur que les autres attributs
   // Ajuster la largeur du texte pour éviter le QR code
   const itineraire = doc.splitTextToSize(vehiculeData.itineraire?.nom || 'Itinéraire non spécifié', pageWidth - qrSize - 50)
   doc.text(itineraire, 20, currentY)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(0, 0, 0) // Remettre en noir pour le reste
   currentY += Math.max(10, itineraire.length * 3) + 5
     // === PIED DE PAGE AVEC SIGNATURES ===
-  // Ligne de séparation simple
+  // Ligne de séparation simple - abaissée pour laisser place à la date sous le QR
+  currentY += 5  // Ajouter de l'espace avant la ligne
   doc.setDrawColor(0, 0, 0)
   doc.setLineWidth(0.5)
   doc.line(15, currentY, pageWidth - 15, currentY)
@@ -666,7 +673,7 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   doc.text(`Réf: ${vehiculeData.codeUnique || 'N/A'}`, pageWidth - 20, headerHeight + 20, { align: 'right' })
   doc.text(`${new Date().toLocaleDateString("fr-FR")}`, pageWidth - 20, headerHeight + 27, { align: 'right' })
     // === SECTIONS STRUCTURÉES ===
-  let currentY = headerHeight + 40
+  let currentY = headerHeight + 50
   
   // I. PROPRIÉTAIRE
   doc.setFontSize(12)
@@ -674,23 +681,18 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   doc.text('I. IDENTITÉ DU PROPRIÉTAIRE', 20, currentY)
   // Données propriétaire avec alignement structuré
   doc.setFontSize(10)
-  currentY += 15
+  currentY += 12
     // Utiliser les mêmes colonnes pour la cohérence avec données rapprochées
   const pLabelCol1 = 10     // Première colonne labels
   const pDataCol1 = 50      // Première colonne données (plus près)
   const pLabelCol2 = 120    // Deuxième colonne labels
   const pDataCol2 = 155     // Deuxième colonne données (plus près)
   
-  // Ligne 1: Nom et Prénom - Téléphone
+  // Ligne 1: Nom et Prénom
   doc.setTextColor(25, 118, 210) // Bleu professionnel pour les labels
   doc.text('Nom et Prénom(s) :', pLabelCol1, currentY)
   doc.setTextColor(0, 0, 0) // Noir pour les données
   doc.text(`${proprietaireData.prenom || ''} ${proprietaireData.nom || ''}`, pDataCol1, currentY)
-  
-  doc.setTextColor(25, 118, 210)
-  doc.text('Téléphone :', pLabelCol2, currentY)
-  doc.setTextColor(0, 0, 0)
-  doc.text(`${proprietaireData.telephone || 'Non spécifié'}`, pDataCol2, currentY)
   
   currentY += 10
   
@@ -702,7 +704,7 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   
   currentY += 10
   
-  // Ligne 3: Type de pièce et Numéro - Lieu de délivrance
+  // Ligne 3: Type de pièce - Lieu de délivrance
   doc.setTextColor(25, 118, 210)
   doc.text('Type de pièce :', pLabelCol1, currentY)
   doc.setTextColor(0, 0, 0)
@@ -715,15 +717,18 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   
   currentY += 10
   
-  // Ligne 4: Numéro de pièce
+  // Ligne 4: Numéro de pièce - Téléphone
   doc.setTextColor(25, 118, 210)
   doc.text('Numéro de pièce :', pLabelCol1, currentY)
   doc.setTextColor(0, 0, 0)
   doc.text(`${proprietaireData.numeroPiece || 'N/A'}`, pDataCol1, currentY)
-  doc.setTextColor(0, 0, 0)
-  doc.text(`${proprietaireData.lieuDelivrance || 'N/A'}`, 170, currentY)
   
-  currentY += 20
+  doc.setTextColor(25, 118, 210)
+  doc.text('Téléphone :', pLabelCol2, currentY)
+  doc.setTextColor(0, 0, 0)
+  doc.text(`${proprietaireData.telephone || 'Non spécifié'}`, pDataCol2, currentY)
+  
+  currentY += 18
     // II. VÉHICULE (avec QR code)
   doc.setFontSize(12)
   doc.text('II. CARACTÉRISTIQUES TECHNIQUES', 20, currentY)    // QR CODE OFFICIEL - Repositionné plus à droite et remonté
@@ -741,7 +746,7 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   // Données véhicule avec alignement structuré
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)
-  currentY += 15
+  currentY += 12
   
   // Utiliser les mêmes colonnes pour la cohérence avec données rapprochées
   const v2LabelCol1 = 20     // Première colonne labels
@@ -804,7 +809,7 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   doc.setFontSize(12)
   doc.text('III. DONNÉES ADMINISTRATIVES', 20, currentY)
   
-  currentY += 15
+  currentY += 12
   doc.setFontSize(10)
   
   // Utiliser les mêmes colonnes pour la cohérence avec données rapprochées
@@ -846,9 +851,13 @@ export const generateVehiclePDFWithFallback = async (vehiculeData: any, propriet
   doc.text('IV. ITINÉRAIRE COMMERCIAL AUTORISÉ', 20, currentY)
   
   currentY += 15
-  doc.setFontSize(9)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 102, 204) // Même couleur que les autres attributs
   const itineraire = doc.splitTextToSize(vehiculeData.itineraire?.nom || 'Tous itinéraires autorisés sur le territoire de Lubumbashi', pageWidth - 50)
   doc.text(itineraire, 20, currentY)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(0, 0, 0) // Remettre en noir pour le reste
   
   currentY += itineraireHeight - 10
   
