@@ -526,10 +526,15 @@ export const generateVehiclePDF = async (vehiculeData: any, proprietaireData: an
   doc.setTextColor(100, 100, 100)
   doc.text(`Document généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`, 20, currentY)
   doc.text('Ce document est authentique et vérifiable via le QR Code ci-dessus', 20, currentY + 5)
-    // Télécharger le PDF
+  // Version info pour diagnostic déploiement
+  doc.setFontSize(6)
+  doc.setTextColor(200, 200, 200)
+  doc.text('PDF-GEN-V2.5-FIX-DEPLOYED', 20, currentY + 10)
+
+  // Télécharger le PDF
   const filename = `Note_Perception_${vehiculeData.codeUnique || vehiculeData.numeroImmatriculation || 'TEMP'}_${new Date().toISOString().split("T")[0]}.pdf`
   doc.save(filename)
-  
+
   return filename
 }
 

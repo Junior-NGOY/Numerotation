@@ -10,7 +10,7 @@ import { ArrowLeft, FileText, Download, FileSpreadsheet, Loader2 } from "lucide-
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
 import { getVehiculesForDocuments } from "@/actions/documents"
-import { exportToExcelAdvanced, prepareVehiculeDataForExport } from "@/lib/excel-export"
+import { exportToExcelAdvanced, prepareVehiculeDataForExport, diagnosticVehiculeData, exportToExcelDetailed } from "@/lib/excel-export"
 import { generateVehiclePDF } from "@/lib/pdf-generator-fixed"
 import type { Vehicule } from "@/types/api"
 
@@ -72,6 +72,9 @@ export default function DocumentsPage() {
       return
     }
     
+    // Diagnostic des données avant export
+    diagnosticVehiculeData(vehicules)
+    
     const excelData = prepareVehiculeDataForExport(vehicules)
     exportToExcelAdvanced(excelData, `vehicules_export_${new Date().toISOString().split("T")[0]}`)
   }
@@ -84,6 +87,9 @@ export default function DocumentsPage() {
 
     const vehicule = vehicules.find(v => v.id === selectedVehicule)
     if (vehicule) {
+      // Diagnostic des données avant export
+      diagnosticVehiculeData([vehicule])
+      
       const excelData = prepareVehiculeDataForExport([vehicule])
       exportToExcelAdvanced(
         excelData,
@@ -188,6 +194,23 @@ export default function DocumentsPage() {
                   Exporter Tous les Véhicules ({vehicules.length})
                 </Button>
 
+                <Button 
+                  onClick={() => {
+                    if (vehicules.length === 0) {
+                      alert("Aucun véhicule à exporter")
+                      return
+                    }
+                    diagnosticVehiculeData(vehicules)
+                    exportToExcelDetailed(vehicules, `vehicules_complet`)
+                  }} 
+                  className="w-full" 
+                  variant="default"
+                  disabled={loading || vehicules.length === 0}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export Détaillé Multi-Feuilles ({vehicules.length})
+                </Button>
+
                 <Button
                   onClick={exportSelectedToExcel}
                   className="w-full"
@@ -199,12 +222,13 @@ export default function DocumentsPage() {
                 </Button>
 
                 <div className="text-sm text-gray-600">
-                  <p className="font-semibold mb-2">Le fichier Excel contiendra :</p>
+                  <p className="font-semibold mb-2">Les fichiers Excel contiendront :</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>Informations propriétaires et véhicules</li>
-                    <li>Données techniques complètes</li>
-                    <li>Dates d'enregistrement</li>
-                    <li>Codes uniques et itinéraires</li>
+                    <li><strong>Propriétaires :</strong> Nom, prénom, adresse, téléphone, type et numéro de pièce, lieu et date de délivrance</li>
+                    <li><strong>Véhicules :</strong> Marque, modèle, type, immatriculation, châssis, année</li>
+                    <li><strong>Itinéraires :</strong> Points de départ/arrivée, dates et heures</li>
+                    <li><strong>Administration :</strong> Codes uniques, prix, dates d'enregistrement</li>
+                    <li><strong>Export détaillé :</strong> Feuilles séparées + statistiques</li>
                   </ul>
                 </div>
               </CardContent>
@@ -245,6 +269,8 @@ export default function DocumentsPage() {
                         <TableHead>Type</TableHead>
                         <TableHead>Immatriculation</TableHead>
                         <TableHead>Code Unique</TableHead>
+                        <TableHead>Adresse</TableHead>
+                        <TableHead>Itinéraire</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -259,6 +285,9 @@ export default function DocumentsPage() {
                                     {vehicule.proprietaire.prenom} {vehicule.proprietaire.nom}
                                   </p>
                                   <p className="text-sm text-gray-500">{vehicule.proprietaire.telephone}</p>
+                                  <p className="text-xs text-gray-400">
+                                    {vehicule.proprietaire.typePiece}: {vehicule.proprietaire.numeroPiece}
+                                  </p>
                                 </>
                               ) : (
                                 <p className="text-sm text-gray-500">Propriétaire non disponible</p>
@@ -276,6 +305,15 @@ export default function DocumentsPage() {
                           <TableCell>{vehicule.typeVehicule}</TableCell>
                           <TableCell className="font-mono">{vehicule.numeroImmatriculation}</TableCell>
                           <TableCell className="font-mono text-sm">{vehicule.codeUnique}</TableCell>
+                          <TableCell className="text-sm">
+                            {vehicule.proprietaire?.adresse || 'Non spécifiée'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {vehicule.itineraire?.nom || 
+                             (vehicule.itineraire?.pointDepart 
+                               ? `${vehicule.itineraire.pointDepart} → ${vehicule.itineraire.pointArrivee}`
+                               : 'Non spécifié')}
+                          </TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
                               <Button
