@@ -1,5 +1,5 @@
 // Configuration de base pour les appels API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-a371d.up.railway.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 import { ApiResponse, PaginatedResponse } from '@/types/api';
 

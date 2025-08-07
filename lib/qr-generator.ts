@@ -140,3 +140,19 @@ export async function generateVehicleQRPreview(vehicule: Vehicule): Promise<stri
   const qrData = generateVehicleQRData(vehicule)
   return generateQRCode(qrData)
 }
+
+// Utilitaires pour la génération de QR codes
+export const generateQRCodeUrl = (data: string, size: number = 150): string => {
+  const encodedData = encodeURIComponent(data);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedData}`;
+};
+
+export const generateQRCodeForVehicule = (vehicule: any): string => {
+  // Créer une URL vers le détail du véhicule ou utiliser le code unique
+  const vehiculeUrl = `${window.location.origin}/vehicules/${vehicule.id}`;
+  return generateQRCodeUrl(vehiculeUrl);
+};
+
+export const generateQRCodeForDocument = (documentUrl: string): string => {
+  return generateQRCodeUrl(documentUrl);
+};

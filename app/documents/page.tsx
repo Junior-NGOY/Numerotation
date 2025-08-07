@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, FileText, Download, FileSpreadsheet, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
+import { DateExportOptions } from "@/components/date-export-options"
 import { getVehiculesForDocuments } from "@/actions/documents"
-import { exportToExcelAdvanced, prepareVehiculeDataForExport, diagnosticVehiculeData, exportToExcelDetailed } from "@/lib/excel-export"
+import { exportToExcelAdvanced, prepareVehiculeDataForExport, diagnosticVehiculeData, exportToExcelDetailed, exportVehiculesToday, exportVehiculesForSpecificDate, exportVehiculesForDateRange, generateDailyReport, exportVehiculesMultiSheetByDate } from "@/lib/excel-export"
 import { generateVehiclePDF } from "@/lib/pdf-generator-fixed"
 import type { Vehicule } from "@/types/api"
 
@@ -96,6 +97,47 @@ export default function DocumentsPage() {
         `vehicule_${vehicule.numeroImmatriculation}_${new Date().toISOString().split("T")[0]}`,
       )
     }
+  }
+
+  // Nouvelles fonctions d'export par date
+  const handleExportToday = () => {
+    if (vehicules.length === 0) {
+      alert("Aucune donnée à exporter")
+      return
+    }
+    // Logique d'export pour aujourd'hui
+  }
+
+  const handleExportSpecificDate = (date: string) => {
+    if (vehicules.length === 0) {
+      alert("Aucune donnée à exporter")
+      return
+    }
+    // Logique d'export pour une date spécifique
+  }
+
+  const handleExportDateRange = (startDate: string, endDate: string) => {
+    if (vehicules.length === 0) {
+      alert("Aucune donnée à exporter")
+      return
+    }
+    // Logique d'export pour une plage de dates
+  }
+
+  const handleDailyReport = () => {
+    if (vehicules.length === 0) {
+      alert("Aucune donnée à exporter")
+      return
+    }
+    // Logique pour générer le rapport quotidien
+  }
+
+  const handleMultiPeriodExport = () => {
+    if (vehicules.length === 0) {
+      alert("Aucune donnée à exporter")
+      return
+    }
+    // Logique d'export multi-période
   }
 
   return (
@@ -208,31 +250,17 @@ export default function DocumentsPage() {
                   disabled={loading || vehicules.length === 0}
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Export Détaillé Multi-Feuilles ({vehicules.length})
+                  Export Détaillé Multi-Feuilles
                 </Button>
-
-                <Button
-                  onClick={exportSelectedToExcel}
-                  className="w-full"
-                  variant="outline"
-                  disabled={!selectedVehicule || loading}
-                >
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Exporter Véhicule Sélectionné
-                </Button>
-
-                <div className="text-sm text-gray-600">
-                  <p className="font-semibold mb-2">Les fichiers Excel contiendront :</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li><strong>Propriétaires :</strong> Nom, prénom, adresse, téléphone, type et numéro de pièce, lieu et date de délivrance</li>
-                    <li><strong>Véhicules :</strong> Marque, modèle, type, immatriculation, châssis, année</li>
-                    <li><strong>Itinéraires :</strong> Points de départ/arrivée, dates et heures</li>
-                    <li><strong>Administration :</strong> Codes uniques, prix, dates d'enregistrement</li>
-                    <li><strong>Export détaillé :</strong> Feuilles séparées + statistiques</li>
-                  </ul>
-                </div>
               </CardContent>
             </Card>
+
+            {/* Options d'export par date */}
+            <DateExportOptions 
+              vehiculesWithProprietaires={vehicules}
+              proprietaires={[]} // TODO: Charger les propriétaires si nécessaire
+              disabled={loading || vehicules.length === 0}
+            />
           </div>
 
           {/* Liste des véhicules */}
@@ -309,10 +337,7 @@ export default function DocumentsPage() {
                             {vehicule.proprietaire?.adresse || 'Non spécifiée'}
                           </TableCell>
                           <TableCell className="text-sm">
-                            {vehicule.itineraire?.nom || 
-                             (vehicule.itineraire?.pointDepart 
-                               ? `${vehicule.itineraire.pointDepart} → ${vehicule.itineraire.pointArrivee}`
-                               : 'Non spécifié')}
+                            {vehicule.itineraire?.nom || 'Non spécifié'}
                           </TableCell>
                           <TableCell>
                             <div className="flex space-x-2">

@@ -5,7 +5,8 @@ import type {
   CreateProprietaireForm,
   ApiResponse, 
   PaginatedResponse,
-  SearchParams 
+  SearchParams,
+  Vehicule
 } from '@/types/api';
 
 // Créer un propriétaire avec possibilité d'upload de pièce d'identité
@@ -117,4 +118,22 @@ export async function getProprietairesStats(): Promise<ApiResponse<{
   recentCreations: number;
 }>> {
   return apiRequest<any>('/api/v1/proprietaires/stats');
+}
+
+// Obtenir un propriétaire avec tous ses véhicules
+export async function getProprietaireWithVehicules(id: string): Promise<ApiResponse<Proprietaire & { 
+  vehicules: Vehicule[] 
+}>> {
+  return apiRequest<Proprietaire & { vehicules: Vehicule[] }>(`/api/v1/proprietaires/${id}`);
+}
+
+// Vérifier l'unicité du numéro de pièce
+export async function checkProprietaireUniqueness(data: {
+  numeroPiece: string;
+  excludeId?: string;
+}): Promise<ApiResponse<{ numeroPiece: boolean }>> {
+  return apiRequest<{ numeroPiece: boolean }>('/api/v1/proprietaires/check-uniqueness', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
