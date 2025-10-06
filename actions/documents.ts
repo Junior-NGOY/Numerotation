@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestFormData } from '@/lib/api';
+git import { apiRequest, apiRequestFormData } from '@/lib/api';
 import type { 
   Document,
   ApiResponse, 
@@ -134,6 +134,54 @@ export async function getDocumentsStats(): Promise<ApiResponse<{
 }
 
 // Obtenir tous les véhicules avec leurs propriétaires pour la génération de documents
+// Récupère TOUS les véhicules en utilisant une pagination automatique
 export async function getVehiculesForDocuments(): Promise<PaginatedResponse<Vehicule>> {
-  return apiRequest<any>('/api/v1/vehicules?limit=1000');
+  try {
+    let allVehicules: Vehicule[] = [];
+    let currentPage = 1;
+    const limit = 1000; // Charger par lots de 1000
+    let hasMore = true;
+
+    // Récupérer tous les véhicules en paginant
+    while (hasMore) {
+      const response = await apiRequest<any>(`/api/v1/vehicules?page=${currentPage}&limit=${limit}`);
+      
+      if (response.error) {
+        // Si erreur, retourner ce qu'on a déjà récupéré
+        console.error('Erreur lors de la récupération des véhicules:', response.error);
+        break;
+      }
+
+      const vehiculesData = response.data?.items || [];
+      allVehicules = [...allVehicules, ...vehiculesData];
+
+      // Vérifier s'il y a d'autres pages
+      const pagination = response.data?.pagination;
+      if (pagination && currentPage < pagination.totalPages) {
+        currentPage++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    // Retourner tous les véhicules dans le format paginé attendu
+    return {
+      data: {
+        items: allVehicules,
+        pagination: {
+          page: 1,
+          limit: allVehicules.length,
+          total: allVehicules.length,
+          totalPages: 1,
+        },
+      },
+      error: null,
+    };
+  } catch (error) {
+    console.error('Erreur lors de la récupération des véhicules:', error);
+    return {
+      data: null,
+      error: 'Erreur lors de la récupération des véhicules',
+    };
+  }
 }

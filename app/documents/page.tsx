@@ -28,6 +28,7 @@ export default function DocumentsPage() {
       try {
         setLoading(true)
         setError(null)
+        console.log('🚗 Chargement de tous les véhicules...')
         const response = await getVehiculesForDocuments()
         
         if (response.error) {
@@ -36,6 +37,7 @@ export default function DocumentsPage() {
           // L'endpoint retourne une structure paginée avec data.items
           const vehiculesData = response.data?.items || []
           setVehicules(vehiculesData)
+          console.log(`✅ ${vehiculesData.length} véhicule(s) chargé(s)`)
         }
       } catch (err) {
         setError("Erreur lors du chargement des véhicules")
@@ -170,9 +172,10 @@ export default function DocumentsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {loading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    <span>Chargement des véhicules...</span>
+                  <div className="flex flex-col items-center justify-center py-8 space-y-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-sm font-medium">Chargement de tous les véhicules...</span>
+                    <span className="text-xs text-muted-foreground">Cela peut prendre quelques secondes</span>
                   </div>
                 ) : error ? (
                   <div className="text-red-600 p-4 bg-red-50 rounded-lg">
@@ -182,7 +185,12 @@ export default function DocumentsPage() {
                 ) : (
                   <>
                     <div className="space-y-2">
-                      <Label>Sélectionner un véhicule</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Sélectionner un véhicule</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {vehicules.length} véhicule{vehicules.length > 1 ? 's' : ''} disponible{vehicules.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
                       <Combobox
                         options={vehicules.map((vehicule) => ({
                           value: vehicule.id,
