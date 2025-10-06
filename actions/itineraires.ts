@@ -106,7 +106,7 @@ export interface ActiveItineraire {
   nom: string;
   description?: string;
   distance?: number;
-  dureeEstimee?: number;
+  duree?: number;
 }
 
 // Obtenir la liste des itinéraires actifs (pour les selects)

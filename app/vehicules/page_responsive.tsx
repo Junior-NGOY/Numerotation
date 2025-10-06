@@ -651,11 +651,11 @@ export default function VehiculesPage() {
                   {viewingVehicule.itineraire?.description && (
                     <p className="text-sm text-gray-600">{viewingVehicule.itineraire.description}</p>
                   )}
-                  {(viewingVehicule.itineraire?.distance || viewingVehicule.itineraire?.dureeEstimee) && (
+                  {(viewingVehicule.itineraire?.distance || viewingVehicule.itineraire?.duree) && (
                     <p className="text-sm text-gray-600">
                       {viewingVehicule.itineraire.distance && `${viewingVehicule.itineraire.distance} km`}
-                      {viewingVehicule.itineraire.distance && viewingVehicule.itineraire.dureeEstimee && " - "}
-                      {viewingVehicule.itineraire.dureeEstimee && `${viewingVehicule.itineraire.dureeEstimee} min`}
+                      {viewingVehicule.itineraire.distance && viewingVehicule.itineraire.duree && " - "}
+                      {viewingVehicule.itineraire.duree && `${viewingVehicule.itineraire.duree} min`}
                     </p>
                   )}
                 </div>

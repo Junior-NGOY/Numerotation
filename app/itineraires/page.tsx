@@ -18,6 +18,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ArrowLeft, Route, Plus, Edit, Trash2, Search, MapPin, Clock, Ruler } from "lucide-react"
+
+// Type pour le formulaire local
+interface ItineraireForm {
+  nom: string;
+  description?: string;
+  distance?: number;
+  duree?: number;
+  isActive?: boolean;
+}
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
 import { ApiDataTable } from "@/components/api-data-table"
@@ -27,10 +36,10 @@ import {
   createItineraire, 
   updateItineraire, 
   deleteItineraire,
-  type Itineraire,
   type CreateItineraireForm,
   type UpdateItineraireForm
 } from "@/actions/itineraires"
+import { type Itineraire } from "@/types/api"
 import { toast } from "sonner"
 
 export default function ItinerairesPage() {
@@ -39,7 +48,7 @@ export default function ItinerairesPage() {
   const [searchTerm, setSearchTerm] = useState("")
 
   // Form management
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreateItineraireForm & UpdateItineraireForm>()
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<ItineraireForm>()
   // API calls
   const { data, loading, error, refetch, pagination, updateParams } = usePaginatedApiCall(getItineraires, {
     page: 1,
@@ -74,7 +83,7 @@ export default function ItinerairesPage() {
     setValue("nom", itineraire.nom)
     setValue("description", itineraire.description || "")
     setValue("distance", itineraire.distance || undefined)
-    setValue("dureeEstimee", itineraire.dureeEstimee || undefined)
+    setValue("duree", itineraire.duree || undefined)
     setValue("isActive", itineraire.isActive)
     setIsDialogOpen(true)
   }
@@ -87,7 +96,7 @@ export default function ItinerairesPage() {
     }
   }
 
-  const onSubmit = async (data: CreateItineraireForm & UpdateItineraireForm) => {
+  const onSubmit = async (data: ItineraireForm) => {
     try {
       if (editingItineraire) {
         const result = await updateMutation.mutate({ id: editingItineraire.id, data })
@@ -323,18 +332,18 @@ export default function ItinerairesPage() {
                       <p className="text-sm text-red-600 mt-1">{errors.distance.message}</p>
                     )}
                   </div>                  <div>
-                    <Label htmlFor="dureeEstimee">Durée (min)</Label>
+                    <Label htmlFor="duree">Durée (min)</Label>
                     <Input
-                      id="dureeEstimee"
+                      id="duree"
                       type="number"
-                      {...register("dureeEstimee", { 
+                      {...register("duree", { 
                         valueAsNumber: true,
-                        validate: value => !value || value > 0 || "La durée doit être positive"
+                        validate: value => !value || (typeof value === 'number' && value > 0) || "La durée doit être positive"
                       })}
                       placeholder="0"
                     />
-                    {errors.dureeEstimee && (
-                      <p className="text-sm text-red-600 mt-1">{errors.dureeEstimee.message}</p>
+                    {errors.duree && (
+                      <p className="text-sm text-red-600 mt-1">{errors.duree.message}</p>
                     )}
                   </div>
                 </div>

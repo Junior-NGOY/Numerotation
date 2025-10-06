@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { FileUpload } from "@/components/ui/file-upload"
+import { Combobox } from "@/components/ui/combobox"
 import {
   Dialog,
   DialogContent,
@@ -387,25 +388,23 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
                   <CardContent>
                     <div>
                       <Label htmlFor="proprietaireId">Propriétaire *</Label>
-                      <Select 
-                        onValueChange={(value) => setValue("proprietaireId", value)}
+                      <Combobox
+                        options={
+                          proprietairesLoading 
+                            ? [] 
+                            : (proprietaires || []).map((proprietaire: Proprietaire) => ({
+                                value: proprietaire.id,
+                                label: `${proprietaire.prenom} ${proprietaire.nom}`,
+                                searchText: `${proprietaire.prenom} ${proprietaire.nom} ${proprietaire.telephone} ${proprietaire.numeroPiece}`,
+                              }))
+                        }
                         value={watch("proprietaireId")}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner le propriétaire" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {proprietairesLoading ? (
-                            <SelectItem value="" disabled>Chargement...</SelectItem>
-                          ) : (
-                            proprietaires?.map((proprietaire: Proprietaire) => (
-                              <SelectItem key={proprietaire.id} value={proprietaire.id}>
-                                {proprietaire.prenom} {proprietaire.nom}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                        onValueChange={(value) => setValue("proprietaireId", value)}
+                        placeholder={proprietairesLoading ? "Chargement..." : "Sélectionner le propriétaire"}
+                        searchPlaceholder="Rechercher par nom, téléphone ou N° pièce..."
+                        emptyText="Aucun propriétaire trouvé"
+                        disabled={proprietairesLoading}
+                      />
                       {errors.proprietaireId && (
                         <p className="text-sm text-red-600 mt-1">Le propriétaire est requis</p>
                       )}
@@ -541,7 +540,7 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
                           <p className="text-sm text-red-600 mt-1">{errors.capaciteAssises.message}</p>
                         )}
                       </div>
-                    </div>                    <div>                      <div className="flex items-center justify-between">
+                    </div>                    <div>                      <div className="flex items-center justify-between mb-2">
                         <Label htmlFor="itineraireId">Itinéraire</Label>
                         <Link href="/itineraires">
                           <Button type="button" variant="outline" size="sm">
@@ -549,32 +548,23 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
                           </Button>
                         </Link>
                       </div>
-                      <Select
+                      <Combobox
+                        options={
+                          itinerairesLoading
+                            ? []
+                            : (itineraires || []).map((itineraire) => ({
+                                value: itineraire.id,
+                                label: itineraire.nom,
+                                searchText: `${itineraire.nom} ${itineraire.description || ''} ${itineraire.distance || ''} ${itineraire.duree || ''}`,
+                              }))
+                        }
+                        value={watch("itineraireId") || ""}
                         onValueChange={(value) => setValue("itineraireId", value)}
-                        value={watch("itineraireId") || undefined}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez un itinéraire" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {itineraires?.map((itineraire) => (
-                            <SelectItem key={itineraire.id} value={itineraire.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{itineraire.nom}</span>
-                                {itineraire.description && (
-                                  <span className="text-xs text-gray-500">{itineraire.description}</span>
-                                )}                                {(itineraire.distance || itineraire.dureeEstimee) && (
-                                  <span className="text-xs text-gray-400">
-                                    {itineraire.distance && `${itineraire.distance} km`}
-                                    {itineraire.distance && itineraire.dureeEstimee && " - "}
-                                    {itineraire.dureeEstimee && `${itineraire.dureeEstimee} min`}
-                                  </span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder={itinerairesLoading ? "Chargement..." : "Sélectionnez un itinéraire"}
+                        searchPlaceholder="Rechercher un itinéraire..."
+                        emptyText="Aucun itinéraire trouvé"
+                        disabled={itinerairesLoading}
+                      />
                       {itinerairesLoading && (
                         <p className="text-sm text-gray-500 mt-1">Chargement des itinéraires...</p>
                       )}
@@ -747,11 +737,11 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
                   <p>{viewingVehicule.itineraire?.nom || "Itinéraire non spécifié"}</p>
                   {viewingVehicule.itineraire?.description && (
                     <p className="text-sm text-gray-600">{viewingVehicule.itineraire.description}</p>
-                  )}                  {(viewingVehicule.itineraire?.distance || viewingVehicule.itineraire?.dureeEstimee) && (
+                  )}                  {(viewingVehicule.itineraire?.distance || viewingVehicule.itineraire?.duree) && (
                     <p className="text-sm text-gray-500">
                       {viewingVehicule.itineraire.distance && `${viewingVehicule.itineraire.distance} km`}
-                      {viewingVehicule.itineraire.distance && viewingVehicule.itineraire.dureeEstimee && " - "}
-                      {viewingVehicule.itineraire.dureeEstimee && `${viewingVehicule.itineraire.dureeEstimee} min`}
+                      {viewingVehicule.itineraire.distance && viewingVehicule.itineraire.duree && " - "}
+                      {viewingVehicule.itineraire.duree && `${viewingVehicule.itineraire.duree} min`}
                     </p>
                   )}
                 </div>

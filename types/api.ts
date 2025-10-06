@@ -62,7 +62,8 @@ export interface Itineraire {
   nom: string;
   description?: string;
   distance?: number;
-  dureeEstimee?: number;
+  duree?: number;
+  isActive: boolean;
   createdAt: string;
   updatedAt?: string;
   createdBy?: {
@@ -107,7 +108,7 @@ export interface Vehicule {
     nom: string;
     description?: string;
     distance?: number;
-    dureeEstimee?: number;
+    duree?: number;
   };
   createdBy?: {
     id: string;
@@ -217,14 +218,14 @@ export interface CreateItineraireForm {
   nom: string;
   description?: string;
   distance?: number;
-  dureeEstimee?: number;
+  duree?: number;
 }
 
 export interface UpdateItineraireForm {
   nom?: string;
   description?: string;
   distance?: number;
-  dureeEstimee?: number;
+  duree?: number;
 }
 
 export interface CreateVehiculeForm {

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ArrowLeft, FileText, Download, FileSpreadsheet, Loader2 } from "lucide-react"
@@ -182,19 +183,19 @@ export default function DocumentsPage() {
                   <>
                     <div className="space-y-2">
                       <Label>Sélectionner un véhicule</Label>
-                      <Select onValueChange={setSelectedVehicule} disabled={vehicules.length === 0}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={vehicules.length === 0 ? "Aucun véhicule disponible" : "Choisir un véhicule"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vehicules.map((vehicule) => (
-                            <SelectItem key={vehicule.id} value={vehicule.id}>
-                              {vehicule.marque} {vehicule.modele} - {vehicule.numeroImmatriculation}
-                              {vehicule.proprietaire && ` (${vehicule.proprietaire.prenom} ${vehicule.proprietaire.nom})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        options={vehicules.map((vehicule) => ({
+                          value: vehicule.id,
+                          label: `${vehicule.marque} ${vehicule.modele} - ${vehicule.numeroImmatriculation}${vehicule.proprietaire ? ` (${vehicule.proprietaire.prenom} ${vehicule.proprietaire.nom})` : ''}`,
+                          searchText: `${vehicule.marque} ${vehicule.modele} ${vehicule.numeroImmatriculation} ${vehicule.codeUnique} ${vehicule.proprietaire ? `${vehicule.proprietaire.prenom} ${vehicule.proprietaire.nom} ${vehicule.proprietaire.telephone}` : ''}`,
+                        }))}
+                        value={selectedVehicule}
+                        onValueChange={setSelectedVehicule}
+                        placeholder={vehicules.length === 0 ? "Aucun véhicule disponible" : "Choisir un véhicule"}
+                        searchPlaceholder="Rechercher par marque, modèle, immatriculation, code ou propriétaire..."
+                        emptyText="Aucun véhicule trouvé"
+                        disabled={vehicules.length === 0}
+                      />
                     </div>
 
                     <Button onClick={handleGeneratePDF} className="w-full" disabled={!selectedVehicule}>
