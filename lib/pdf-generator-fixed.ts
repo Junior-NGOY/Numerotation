@@ -950,3 +950,394 @@ export const testLogoAvailability = async () => {
   
   return results
 }
+
+/**
+ * Génère UN SEUL PDF contenant plusieurs pages (une par véhicule)
+ * GARDE LE FORMAT ORIGINAL EXACTEMENT IDENTIQUE
+ * @param vehicules - Liste des véhicules avec leurs propriétaires
+ * @param startDate - Date de début optionnelle (pour le nom du fichier)
+ * @param endDate - Date de fin optionnelle (pour le nom du fichier)
+ */
+export const generateMultiPagePDF = async (
+  vehicules: Array<{ vehicule: any; proprietaire: any }>,
+  startDate?: string,
+  endDate?: string
+) => {
+  if (vehicules.length === 0) {
+    throw new Error('Aucun véhicule à générer')
+  }
+
+  console.log(`📄 Génération d'un PDF multi-pages avec ${vehicules.length} véhicule(s)...`)
+
+  // Créer UN SEUL document PDF
+  const doc = new jsPDF()
+  
+  // Charger les logos UNE SEULE FOIS
+  let logoSIDDataURL: string | null = null
+  let logoMairieDataURL: string | null = null
+  
+  try {
+    logoSIDDataURL = await loadImageAsBase64('/logo-sid.jpeg')
+    console.log('✅ Logo SID chargé')
+  } catch (error) {
+    console.warn('⚠️ Logo SID non disponible:', error)
+  }
+  
+  try {
+    logoMairieDataURL = await loadImageAsBase64('/logo-mairie.png')
+    console.log('✅ Logo Mairie chargé')
+  } catch (error) {
+    console.warn('⚠️ Logo Mairie non disponible:', error)
+  }
+
+  // Boucle sur chaque véhicule pour générer une page
+  for (let i = 0; i < vehicules.length; i++) {
+    const { vehicule: vehiculeData, proprietaire: proprietaireData } = vehicules[i]
+    
+    console.log(`📃 Page ${i + 1}/${vehicules.length}: ${vehiculeData.codeUnique}`)
+
+    // Ajouter une nouvelle page (sauf pour la première)
+    if (i > 0) {
+      doc.addPage()
+    }
+
+    // === COPIE EXACTE DU CODE DE generateVehiclePDF ===
+    
+    // Générer le QR code pour ce véhicule
+    const qrData = generateVehicleQRData(vehiculeData)
+    const qrCodeDataURL = await generateQRCode(qrData)
+    
+    // Configuration des dimensions
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    
+    // FILIGRANE EN ARRIÈRE-PLAN - TRIPLE PARALLÈLE
+    doc.saveGraphicsState()
+    doc.setTextColor(248, 248, 248)
+    doc.setFontSize(45)
+    const centerX = pageWidth / 2
+    const centerY = pageHeight / 2
+    
+    doc.text('NUMEROTATION', centerX, centerY, {
+      angle: 45,
+      align: 'center',
+      baseline: 'middle'
+    })
+    
+    doc.text('NUMEROTATION', centerX - 60, centerY, {
+      angle: 45,
+      align: 'center',
+      baseline: 'middle'
+    })
+    
+    doc.text('NUMEROTATION', centerX + 60, centerY, {
+      angle: 45,
+      align: 'center',
+      baseline: 'middle'
+    })
+    
+    doc.restoreGraphicsState()
+    
+    // === EN-TÊTE OFFICIEL COMPACT ===
+    const headerHeight = 50
+    const leftStartX = 15
+    
+    doc.setFontSize(12)
+    doc.setTextColor(0, 0, 0)
+    doc.text('RÉPUBLIQUE DÉMOCRATIQUE DU CONGO', leftStartX, 12)
+    
+    doc.setFontSize(10)
+    doc.text('PROVINCE : HAUT-KATANGA', leftStartX, 19)
+    
+    if (logoMairieDataURL) {
+      const logoMairieSize = 20
+      doc.addImage(logoMairieDataURL, 'PNG', leftStartX, 23, logoMairieSize, logoMairieSize)
+      
+      doc.setFontSize(9)
+      doc.text('Ville : Lubumbashi', leftStartX + logoMairieSize + 5, 30)
+      doc.setFontSize(8)
+      doc.setTextColor(100, 100, 100)
+      doc.text('BUREAU DE LA MAIRIE', leftStartX + logoMairieSize + 5, 37)
+    } else {
+      doc.setFontSize(9)
+      doc.text('Ville : Lubumbashi', leftStartX, 28)
+      doc.setFontSize(8)
+      doc.setTextColor(100, 100, 100)
+      doc.text('BUREAU DE LA MAIRIE', leftStartX, 35)
+    }
+    
+    if (logoSIDDataURL) {
+      const logoSIDSize = 22
+      const logoSIDX = pageWidth - logoSIDSize - 15
+      doc.addImage(logoSIDDataURL, 'JPEG', logoSIDX, 8, logoSIDSize, logoSIDSize * 0.8)
+      
+      doc.setFontSize(7)
+      doc.setTextColor(220, 53, 69)
+      doc.text('SID', logoSIDX + logoSIDSize/2, logoSIDSize + 15, { align: 'center' })
+      doc.text('Société Internationale', logoSIDX + logoSIDSize/2, logoSIDSize + 19, { align: 'center' })
+      doc.text('D\'approvisionnement', logoSIDX + logoSIDSize/2, logoSIDSize + 23, { align: 'center' })
+    } else {
+      const sidTextX = pageWidth - 60
+      doc.setFontSize(14)
+      doc.setTextColor(220, 53, 69)
+      doc.text('SID', sidTextX, 18)
+      doc.setFontSize(8)
+      doc.text('Société Internationale', sidTextX, 25)
+      doc.text('D\'approvisionnement', sidTextX, 30)
+      doc.setFontSize(7)
+      doc.setTextColor(100, 100, 100)
+      doc.text('Service d\'Enregistrement', sidTextX, 37)
+    }
+    
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(1)
+    doc.line(15, headerHeight, pageWidth - 15, headerHeight)
+    
+    // === ENCADRÉ FBN-BANK À DEUX COLONNES ===
+    const bankBoxY = headerHeight + 8
+    const bankBoxHeight = 20
+    const bankBoxWidth = pageWidth - 30
+    const col1Width = bankBoxWidth * 0.2
+    const col2Width = bankBoxWidth * 0.8
+    
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(1)
+    doc.rect(15, bankBoxY, bankBoxWidth, bankBoxHeight)
+    
+    doc.setLineWidth(0.5)
+    doc.line(15 + col1Width, bankBoxY, 15 + col1Width, bankBoxY + bankBoxHeight)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(0, 0, 0)
+    doc.text('VOLET A', 15 + col1Width/2, bankBoxY + bankBoxHeight/2, { align: 'center', baseline: 'middle' })
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(0, 0, 0)
+    
+    const col2RightMargin = 15 + bankBoxWidth - 5
+    doc.text('A verser à FBN-BANK : 00014-25000-2042090896316 | CDF 90%', col2RightMargin, bankBoxY + 8, { align: 'right' })
+    
+    doc.setFontSize(10)
+    doc.text('10% retenus à la source pour les services', col2RightMargin, bankBoxY + 14, { align: 'right' })
+    
+    doc.setFont('helvetica', 'normal')
+    
+    // === TITRE DU DOCUMENT ===
+    doc.setFontSize(16)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`NOTE DE PERCEPTION N° ${vehiculeData.codeUnique || 'N/A'}`, pageWidth / 2, bankBoxY + bankBoxHeight + 12, { align: 'center' })
+    
+    // === TEXTES LÉGAUX ===
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(0, 0, 0)
+    doc.text('Textes Légaux : - Arrêté Urbain N°011/Bur-Mairie/Ville/Lshi/2025 du 11 Juin 2025', pageWidth / 2, bankBoxY + bankBoxHeight + 22, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    
+    // === CORPS DU DOCUMENT ===
+    let currentY = headerHeight + 65
+    
+    // SECTION I. PROPRIÉTAIRE
+    doc.setFontSize(12)
+    doc.setTextColor(0, 0, 0)
+    doc.text('I. INFORMATIONS DU PROPRIÉTAIRE', 20, currentY)
+    doc.setFontSize(10)
+    currentY += 10
+    
+    const labelCol1 = 20
+    const dataCol1 = 70
+    const labelCol2 = 120
+    const dataCol2 = 155
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Nom et Prénom :', labelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${proprietaireData.prenom || ''} ${proprietaireData.nom || ''}`, dataCol1, currentY)
+    currentY += 6
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Adresse complète :', labelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${proprietaireData.adresse || 'Non spécifiée'}`, dataCol1, currentY)
+    currentY += 6
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Type de pièce :', labelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${proprietaireData.typePiece || 'N/A'}`, dataCol1, currentY)
+    doc.setTextColor(25, 118, 210)
+    doc.text('Délivrée à :', labelCol2, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${proprietaireData.lieuDelivrance || 'N/A'}`, dataCol2, currentY)
+    currentY += 6
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Numéro de pièce :', labelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${proprietaireData.numeroPiece || 'N/A'}`, dataCol1, currentY)
+    doc.setTextColor(25, 118, 210)
+    doc.text('Téléphone :', labelCol2, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${proprietaireData.telephone || 'Non spécifié'}`, dataCol2, currentY)
+    currentY += 10
+    
+    // SECTION II. VÉHICULE
+    doc.setFontSize(12)
+    doc.text('II. CARACTÉRISTIQUES DU VÉHICULE', 20, currentY)
+    doc.setFontSize(10)
+    currentY += 10
+    
+    const vLabelCol1 = 20
+    const vDataCol1 = 70
+    const vLabelCol2 = 120
+    const vDataCol2 = 155
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Marque :', vLabelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.marque || 'Non spécifiée'}`, vDataCol1, currentY)
+    doc.setTextColor(25, 118, 210)
+    doc.text('Modèle :', vLabelCol2, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.modele || 'Non spécifié'}`, vDataCol2, currentY)
+    currentY += 6
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Type de véhicule :', vLabelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${getVehicleTypeDescription(vehiculeData.typeVehicule) || vehiculeData.typeVehicule || 'Non spécifié'}`, vDataCol1, currentY)
+    doc.setTextColor(25, 118, 210)
+    doc.text('Année fabrication :', vLabelCol2, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.anneeFabrication || 'N/A'}`, vDataCol2, currentY)
+    currentY += 7
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('N° immatriculation :', vLabelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.numeroImmatriculation || 'Non spécifiée'}`, vDataCol1, currentY)
+    doc.setTextColor(25, 118, 210)
+    doc.text('Nombre de places :', vLabelCol2, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.capaciteAssises || '0'}`, vDataCol2, currentY)
+    currentY += 7
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('N° de châssis :', vLabelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.numeroChassis || 'Non spécifié'}`, vDataCol1, currentY)
+    currentY += 10
+    
+    // SECTION III. ADMINISTRATIVE
+    doc.setFontSize(12)
+    doc.setTextColor(0, 0, 0)
+    doc.text('III. INFORMATIONS ADMINISTRATIVES', 20, currentY)
+    currentY += 10
+    doc.setFontSize(10)
+    
+    const aLabelCol1 = 20
+    const aDataCol1 = 70
+    const aLabelCol2 = 120
+    const aDataCol2 = 155
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Prix enregistrement :', aLabelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${formatPrice(vehiculeData.prixEnregistrement)}`, aDataCol1, currentY)
+    doc.setTextColor(25, 118, 210)
+    doc.text('Code unique :', aLabelCol2, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.codeUnique || 'N/A'}`, aDataCol2, currentY)
+    currentY += 7
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Nous disons :', aLabelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${formatPrixEnLettres(vehiculeData.prixEnregistrement)}`, aDataCol1, currentY)
+    currentY += 7
+    
+    doc.setTextColor(25, 118, 210)
+    doc.text('Année enregistrement :', aLabelCol1, currentY)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${vehiculeData.anneeEnregistrement || new Date().getFullYear()}`, aDataCol1, currentY)
+    currentY += 10
+    
+    // SECTION IV. ITINÉRAIRE AUTORISÉ
+    doc.setFontSize(12)
+    doc.text('IV. ITINÉRAIRE AUTORISÉ', 20, currentY)
+    
+    const qrSize = 35
+    const qrX = pageWidth - qrSize - 20
+    const qrY = currentY - 20
+    doc.addImage(qrCodeDataURL, 'PNG', qrX, qrY, qrSize, qrSize)
+    
+    doc.setFontSize(7)
+    doc.setTextColor(0, 0, 0)
+    doc.text('QR Code de', qrX + qrSize/2, qrY + qrSize + 4, { align: 'center' })
+    doc.text('vérification', qrX + qrSize/2, qrY + qrSize + 8, { align: 'center' })
+    
+    doc.setFontSize(8)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Date: ${new Date().toLocaleDateString("fr-FR")}`, qrX + qrSize/2, qrY + qrSize + 11, { align: 'center' })
+    
+    currentY += 10
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 102, 204)
+    const itineraire = doc.splitTextToSize(vehiculeData.itineraire?.nom || 'Itinéraire non spécifié', pageWidth - qrSize - 50)
+    doc.text(itineraire, 20, currentY)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(0, 0, 0)
+    currentY += Math.max(10, itineraire.length * 3) + 5
+    
+    // === PIED DE PAGE AVEC SIGNATURES ===
+    currentY += 5
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.5)
+    doc.line(15, currentY, pageWidth - 15, currentY)
+    
+    currentY += 8
+    
+    doc.setFontSize(10)
+    doc.setTextColor(0, 0, 0)
+    
+    const redevableX = 25
+    const ppuX = pageWidth - 60
+    
+    doc.text('Redevable', redevableX, currentY)
+    doc.text('____________________', redevableX, currentY + 15)
+    
+    doc.text('P.P.U', ppuX, currentY)
+    doc.text('____________________', ppuX, currentY + 15)
+    currentY += 23
+    doc.setFontSize(8)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Document généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`, 20, currentY)
+    doc.text('Ce document est authentique et vérifiable via le QR Code ci-dessus', 20, currentY + 5)
+    
+    doc.setFontSize(6)
+    doc.setTextColor(200, 200, 200)
+    doc.text('PDF-GEN-V2.5-FIX-DEPLOYED', 20, currentY + 10)
+  }
+
+  // Générer le nom du fichier
+  let filename = `Notes_Perception`
+  
+  if (startDate && endDate) {
+    const start = new Date(startDate).toLocaleDateString('fr-FR').replace(/\//g, '-')
+    const end = new Date(endDate).toLocaleDateString('fr-FR').replace(/\//g, '-')
+    filename += `_${start}_au_${end}`
+  } else {
+    filename += `_${new Date().toISOString().split("T")[0]}`
+  }
+  
+  filename += `_${vehicules.length}vehicules.pdf`
+
+  // Sauvegarder LE PDF UNIQUE
+  doc.save(filename)
+
+  console.log(`✅ PDF multi-pages généré: ${filename}`)
+  return filename
+}

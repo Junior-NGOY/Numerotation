@@ -13,7 +13,7 @@ import { AuthGuard } from "@/components/auth-guard"
 import { DateExportOptions } from "@/components/date-export-options"
 import { getVehiculesForDocuments } from "@/actions/documents"
 import { exportToExcelAdvanced, prepareVehiculeDataForExport, diagnosticVehiculeData, exportToExcelDetailed, exportVehiculesToday, exportVehiculesForSpecificDate, exportVehiculesForDateRange, generateDailyReport, exportVehiculesMultiSheetByDate } from "@/lib/excel-export"
-import { generateVehiclePDF } from "@/lib/pdf-generator-fixed"
+import { generateVehiclePDF, generateMultiPagePDF } from "@/lib/pdf-generator-fixed"
 import type { Vehicule } from "@/types/api"
 
 export default function DocumentsPage() {
@@ -21,6 +21,19 @@ export default function DocumentsPage() {
   const [vehicules, setVehicules] = useState<Vehicule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+  const [generatingPDF, setGeneratingPDF] = useState(false)
+
+  // Filtrer les véhicules par période
+  const filteredVehicules = vehicules.filter((v) => {
+    if (!startDate || !endDate) return false
+    const createdAt = new Date(v.createdAt)
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999) // Inclure toute la journée de fin
+    return createdAt >= start && createdAt <= end
+  })
 
   // Charger les véhicules depuis le backend
   useEffect(() => {
@@ -67,6 +80,46 @@ export default function DocumentsPage() {
       }
     } else {
       alert("Impossible de générer le PDF - données manquantes")
+    }
+  }
+
+  const handleGenerateMultiPagePDF = async () => {
+    if (!startDate || !endDate) {
+      alert("Veuillez sélectionner une période (date de début et date de fin)")
+      return
+    }
+
+    if (filteredVehicules.length === 0) {
+      alert("Aucun véhicule trouvé pour la période sélectionnée")
+      return
+    }
+
+    try {
+      setGeneratingPDF(true)
+      console.log(`🚗 Génération d'un PDF avec ${filteredVehicules.length} véhicule(s)...`)
+
+      // Préparer les données (véhicule + propriétaire)
+      const vehiculesData = filteredVehicules
+        .filter(v => v.proprietaire) // Garder seulement ceux qui ont un propriétaire
+        .map(v => ({
+          vehicule: v,
+          proprietaire: v.proprietaire!
+        }))
+
+      if (vehiculesData.length === 0) {
+        alert("Aucun véhicule avec propriétaire trouvé pour la période")
+        return
+      }
+
+      // Générer le PDF multi-pages
+      await generateMultiPagePDF(vehiculesData, startDate, endDate)
+      
+      alert(`✅ PDF généré avec succès ! ${vehiculesData.length} page(s)`)
+    } catch (error) {
+      console.error('Erreur lors de la génération du PDF multi-pages:', error)
+      alert("Erreur lors de la génération du PDF multi-pages")
+    } finally {
+      setGeneratingPDF(false)
     }
   }
 
@@ -157,6 +210,72 @@ export default function DocumentsPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Génération de Documents</h1>
             <p className="text-gray-600">Générez les documents PDF et Excel pour les véhicules enregistrés</p>
           </div>
+
+          {/* Nouvelle section : PDF Multi-Pages par Période */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                PDF Multi-Pages par Période
+              </CardTitle>
+              <CardDescription>
+                Générez un seul fichier PDF contenant toutes les cartes roses des véhicules enregistrés dans une période donnée
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dateDebut">Date de début</Label>
+                  <input
+                    id="dateDebut"
+                    type="date"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dateFin">Date de fin</Label>
+                  <input
+                    id="dateFin"
+                    type="date"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleGenerateMultiPagePDF} 
+                className="w-full" 
+                disabled={loading || !startDate || !endDate || generatingPDF}
+              >
+                {generatingPDF ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Génération en cours...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Générer PDF Multi-Pages ({filteredVehicules.length} véhicule{filteredVehicules.length > 1 ? 's' : ''})
+                  </>
+                )}
+              </Button>
+
+              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                <p className="font-semibold mb-2">ℹ️ À propos :</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>Un seul fichier PDF sera généré avec une page par véhicule</li>
+                  <li>Chaque page conserve le format original de la note</li>
+                  <li>Les véhicules sont filtrés selon leur date d'enregistrement (createdAt)</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid lg:grid-cols-2 gap-8 mb-8">
             {/* Sélection et génération PDF */}
