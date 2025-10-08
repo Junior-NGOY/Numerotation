@@ -133,21 +133,80 @@ export async function getDocumentsStats(): Promise<ApiResponse<{
   return apiRequest<any>('/api/v1/documents/stats');
 }
 
+// Callback pour le suivi de progression
+export type ProgressCallback = (progress: {
+  current: number;
+  total: number;
+  percentage: number;
+  loaded: number;
+  message: string;
+}) => void;
+
 // Obtenir tous les véhicules avec leurs propriétaires pour la génération de documents
-// Récupère TOUS les véhicules en utilisant une pagination automatique
-export async function getVehiculesForDocuments(): Promise<PaginatedResponse<Vehicule>> {
+// Récupère TOUS les véhicules en utilisant une pagination automatique avec indicateur de progression
+export async function getVehiculesForDocuments(
+  onProgress?: ProgressCallback
+): Promise<PaginatedResponse<Vehicule>> {
   try {
     let allVehicules: Vehicule[] = [];
     let currentPage = 1;
     const limit = 1000; // Charger par lots de 1000
     let hasMore = true;
+    let totalPages = 1;
+    let totalVehicules = 0;
 
-    // Récupérer tous les véhicules en paginant
-    while (hasMore) {
+    // Première requête pour obtenir le nombre total
+    const firstResponse = await apiRequest<any>(`/api/v1/vehicules?page=1&limit=${limit}`);
+    
+    if (firstResponse.error) {
+      console.error('Erreur lors de la récupération des véhicules:', firstResponse.error);
+      return {
+        data: null,
+        error: firstResponse.error,
+      };
+    }
+
+    // Extraire les infos de pagination
+    const firstData = firstResponse.data?.items || [];
+    const firstPagination = firstResponse.data?.pagination;
+    totalPages = firstPagination?.totalPages || 1;
+    totalVehicules = firstPagination?.total || firstData.length;
+
+    allVehicules = [...firstData];
+
+    // Notifier le premier chargement
+    if (onProgress) {
+      onProgress({
+        current: 1,
+        total: totalPages,
+        percentage: Math.round((1 / totalPages) * 100),
+        loaded: allVehicules.length,
+        message: `Chargement page 1/${totalPages}... (${allVehicules.length}/${totalVehicules} véhicules)`
+      });
+    }
+
+    // Si une seule page, retourner directement
+    if (totalPages === 1) {
+      return {
+        data: {
+          items: allVehicules,
+          pagination: {
+            page: 1,
+            limit: allVehicules.length,
+            total: allVehicules.length,
+            totalPages: 1,
+          },
+        },
+        error: null,
+      };
+    }
+
+    // Charger les pages suivantes
+    currentPage = 2;
+    while (currentPage <= totalPages) {
       const response = await apiRequest<any>(`/api/v1/vehicules?page=${currentPage}&limit=${limit}`);
       
       if (response.error) {
-        // Si erreur, retourner ce qu'on a déjà récupéré
         console.error('Erreur lors de la récupération des véhicules:', response.error);
         break;
       }
@@ -155,13 +214,29 @@ export async function getVehiculesForDocuments(): Promise<PaginatedResponse<Vehi
       const vehiculesData = response.data?.items || [];
       allVehicules = [...allVehicules, ...vehiculesData];
 
-      // Vérifier s'il y a d'autres pages
-      const pagination = response.data?.pagination;
-      if (pagination && currentPage < pagination.totalPages) {
-        currentPage++;
-      } else {
-        hasMore = false;
+      // Notifier la progression
+      if (onProgress) {
+        onProgress({
+          current: currentPage,
+          total: totalPages,
+          percentage: Math.round((currentPage / totalPages) * 100),
+          loaded: allVehicules.length,
+          message: `Chargement page ${currentPage}/${totalPages}... (${allVehicules.length}/${totalVehicules} véhicules)`
+        });
       }
+
+      currentPage++;
+    }
+
+    // Notification finale
+    if (onProgress) {
+      onProgress({
+        current: totalPages,
+        total: totalPages,
+        percentage: 100,
+        loaded: allVehicules.length,
+        message: `✅ Chargement terminé : ${allVehicules.length} véhicules`
+      });
     }
 
     // Retourner tous les véhicules dans le format paginé attendu

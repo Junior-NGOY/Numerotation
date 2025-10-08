@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, lazy, Suspense } from "react"
+import dynamic from "next/dynamic"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,7 +24,6 @@ import { ArrowLeft, Upload, Car, Plus, Edit, Trash2, Eye, Search, FileText } fro
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
 import { ApiDataTable } from "@/components/api-data-table"
-import DocumentEditor from "@/components/document-editor"
 import { usePaginatedApiCall, useApiMutation } from "@/hooks/use-api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getVehicules, createVehicule, updateVehicule, deleteVehicule } from "@/actions/vehicules"
@@ -32,6 +32,13 @@ import { getActiveItineraires, ActiveItineraire } from "@/actions/itineraires"
 import type { Vehicule, CreateVehiculeForm, Proprietaire, Itineraire } from "@/types/api"
 import { toast } from "sonner"
 import { formatPrice, getVehicleTypeDescription, calculateRegistrationPrice } from "@/lib/pricing-utils"
+import { PageWrapper } from "@/components/page-wrapper"
+
+// Dynamic imports pour optimiser le chargement
+const DocumentEditor = dynamic(() => import("@/components/document-editor"), {
+  loading: () => <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>,
+  ssr: false
+})
 
 export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingVehicule, setEditingVehicule] = useState<Vehicule | null>(null)
@@ -61,11 +68,39 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
   // Effet pour déclencher la recherche automatiquement
   useEffect(() => {
     updateParams({ search: debouncedSearchTerm, page: 1 })
-  }, [debouncedSearchTerm, updateParams])  // Récupérer la liste des propriétaires pour le formulaire
-  const {
-    data: proprietaires,
-    loading: proprietairesLoading
-  } = usePaginatedApiCall(getProprietaires, { page: 1, limit: 100 })
+  }, [debouncedSearchTerm, updateParams])  // Récupérer TOUS les propriétaires pour le formulaire (sans limite)
+  const [proprietaires, setProprietaires] = useState<Proprietaire[]>([])
+  const [proprietairesLoading, setProprietairesLoading] = useState(true)
+  const [proprietairesError, setProprietairesError] = useState<string | null>(null)
+  
+  // Charger tous les propriétaires au montage
+  useEffect(() => {
+    const loadAllProprietaires = async () => {
+      setProprietairesLoading(true)
+      setProprietairesError(null)
+      
+      try {
+        // Charger avec une limite très élevée pour tout avoir
+        const response = await getProprietaires({ page: 1, limit: 999999 })
+        
+        if (response.data?.items) {
+          setProprietaires(response.data.items)
+          console.log('✅ Propriétaires chargés:', response.data.items.length, 'sur', response.data.pagination.total)
+        } else if (response.error) {
+          setProprietairesError(response.error)
+          console.error('❌ Erreur chargement propriétaires:', response.error)
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+        setProprietairesError(errorMessage)
+        console.error('❌ Erreur chargement propriétaires:', error)
+      } finally {
+        setProprietairesLoading(false)
+      }
+    }
+    
+    loadAllProprietaires()
+  }, [])
 
   // Charger les itinéraires actifs
   useEffect(() => {
@@ -387,7 +422,31 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
                   </CardHeader>
                   <CardContent>
                     <div>
-                      <Label htmlFor="proprietaireId">Propriétaire *</Label>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label htmlFor="proprietaireId">Propriétaire *</Label>
+                        {!proprietairesLoading && (
+                          <span className="text-xs text-muted-foreground">
+                            {proprietaires?.length || 0} disponible(s)
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Message d'erreur */}
+                      {proprietairesError && (
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded mb-2">
+                          <p className="font-semibold">Erreur de chargement:</p>
+                          <p>{proprietairesError}</p>
+                        </div>
+                      )}
+                      
+                      {/* Message si aucun propriétaire */}
+                      {!proprietairesLoading && !proprietairesError && (!proprietaires || proprietaires.length === 0) && (
+                        <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded mb-2">
+                          <p className="font-semibold">Aucun propriétaire trouvé</p>
+                          <p>Veuillez d'abord ajouter un propriétaire dans la section "Propriétaires".</p>
+                        </div>
+                      )}
+                      
                       <Combobox
                         options={
                           proprietairesLoading 
@@ -400,10 +459,20 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
                         }
                         value={watch("proprietaireId")}
                         onValueChange={(value) => setValue("proprietaireId", value)}
-                        placeholder={proprietairesLoading ? "Chargement..." : "Sélectionner le propriétaire"}
+                        placeholder={
+                          proprietairesLoading 
+                            ? "Chargement des propriétaires..." 
+                            : proprietaires && proprietaires.length > 0
+                              ? "Sélectionner le propriétaire"
+                              : "Aucun propriétaire disponible"
+                        }
                         searchPlaceholder="Rechercher par nom, téléphone ou N° pièce..."
-                        emptyText="Aucun propriétaire trouvé"
-                        disabled={proprietairesLoading}
+                        emptyText={
+                          proprietaires && proprietaires.length === 0
+                            ? "Aucun propriétaire trouvé. Ajoutez-en un d'abord."
+                            : "Aucun résultat"
+                        }
+                        disabled={proprietairesLoading || !proprietaires || proprietaires.length === 0}
                       />
                       {errors.proprietaireId && (
                         <p className="text-sm text-red-600 mt-1">Le propriétaire est requis</p>

@@ -11,9 +11,13 @@ import { ArrowLeft, FileText, Download, FileSpreadsheet, Loader2 } from "lucide-
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
 import { DateExportOptions } from "@/components/date-export-options"
-import { getVehiculesForDocuments } from "@/actions/documents"
-import { exportToExcelAdvanced, prepareVehiculeDataForExport, diagnosticVehiculeData, exportToExcelDetailed, exportVehiculesToday, exportVehiculesForSpecificDate, exportVehiculesForDateRange, generateDailyReport, exportVehiculesMultiSheetByDate } from "@/lib/excel-export"
-import { generateVehiclePDF, generateMultiPagePDF } from "@/lib/pdf-generator-fixed"
+import { getVehiculesForDocuments, type ProgressCallback } from "@/actions/documents"
+import { LoadingProgress } from "@/components/loading-progress"
+import { PageWrapper } from "@/components/page-wrapper"
+import { preloadLogos } from "@/lib/logo-cache"
+import { TableSkeleton, VehicleCardSkeleton } from "@/components/skeleton-loaders"
+import { NoVehiclesFound, NoDataInRange, ErrorState } from "@/components/empty-state"
+import { toast, appToasts } from "@/lib/toast"
 import type { Vehicule } from "@/types/api"
 
 export default function DocumentsPage() {
@@ -23,26 +27,76 @@ export default function DocumentsPage() {
   const [error, setError] = useState<string | null>(null)
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [selectedVehicleType, setSelectedVehicleType] = useState<string>("ALL")
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  
+  // État pour la barre de progression du chargement des véhicules
+  const [loadingProgress, setLoadingProgress] = useState<{
+    current: number
+    total: number
+    percentage: number
+    loaded: number
+    message: string
+  } | null>(null)
 
-  // Filtrer les véhicules par période
+  // État pour la barre de progression de génération PDF
+  const [pdfProgress, setPdfProgress] = useState<{
+    current: number
+    total: number
+    percentage: number
+    message: string
+  } | null>(null)
+
+  // Filtrer les véhicules par période ET par type
   const filteredVehicules = vehicules.filter((v) => {
-    if (!startDate || !endDate) return false
-    const createdAt = new Date(v.createdAt)
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    end.setHours(23, 59, 59, 999) // Inclure toute la journée de fin
-    return createdAt >= start && createdAt <= end
+    // Filtre par période
+    if (startDate && endDate) {
+      const createdAt = new Date(v.createdAt)
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999) // Inclure toute la journée de fin
+      if (!(createdAt >= start && createdAt <= end)) {
+        return false
+      }
+    }
+    
+    // Filtre par type de véhicule
+    if (selectedVehicleType !== "ALL" && v.typeVehicule !== selectedVehicleType) {
+      return false
+    }
+    
+    return true
   })
 
-  // Charger les véhicules depuis le backend
+  // Statistiques par type
+  const vehicleStats = {
+    ALL: vehicules.length,
+    BUS: vehicules.filter(v => v.typeVehicule === 'BUS').length,
+    MINI_BUS: vehicules.filter(v => v.typeVehicule === 'MINI_BUS').length,
+    TAXI: vehicules.filter(v => v.typeVehicule === 'TAXI').length,
+  }
+
+  // Précharger les logos au montage du composant
+  useEffect(() => {
+    preloadLogos().catch((error) => {
+      console.error('Erreur lors du préchargement des logos:', error)
+    })
+  }, [])
+
+  // Charger les véhicules depuis le backend avec barre de progression
   useEffect(() => {
     async function loadVehicules() {
       try {
         setLoading(true)
         setError(null)
         console.log('🚗 Chargement de tous les véhicules...')
-        const response = await getVehiculesForDocuments()
+        
+        // Callback de progression
+        const onProgress: ProgressCallback = (progress) => {
+          setLoadingProgress(progress)
+        }
+        
+        const response = await getVehiculesForDocuments(onProgress)
         
         if (response.error) {
           setError(response.error)
@@ -57,6 +111,8 @@ export default function DocumentsPage() {
         console.error("Erreur:", err)
       } finally {
         setLoading(false)
+        // Garder l'indicateur visible un moment avant de le masquer
+        setTimeout(() => setLoadingProgress(null), 1500)
       }
     }
 
@@ -65,37 +121,53 @@ export default function DocumentsPage() {
 
   const handleGeneratePDF = async () => {
     if (!selectedVehicule) {
-      alert("Veuillez sélectionner un véhicule")
+      appToasts.noDataSelected()
       return
     }
 
     const vehicule = vehicules.find(v => v.id === selectedVehicule)
     
     if (vehicule && vehicule.proprietaire) {
+      const loadingToast = toast.loading("Génération du PDF en cours...")
       try {
+        // Import dynamique du générateur PDF
+        const { generateVehiclePDF } = await import("@/lib/pdf-generator-fixed")
         await generateVehiclePDF(vehicule, vehicule.proprietaire)
+        toast.dismiss(loadingToast)
+        toast.success(
+          "PDF généré avec succès",
+          `Document pour ${vehicule.numeroImmatriculation}`
+        )
       } catch (error) {
+        toast.dismiss(loadingToast)
+        appToasts.serverError("Erreur lors de la génération du PDF")
         console.error('Erreur lors de la génération du PDF:', error)
-        alert("Erreur lors de la génération du PDF")
       }
     } else {
-      alert("Impossible de générer le PDF - données manquantes")
+      toast.error("Données manquantes", "Impossible de générer le PDF - propriétaire non disponible")
     }
   }
 
   const handleGenerateMultiPagePDF = async () => {
     if (!startDate || !endDate) {
-      alert("Veuillez sélectionner une période (date de début et date de fin)")
+      toast.warning("Dates manquantes", "Veuillez sélectionner une période (date de début et date de fin)")
       return
     }
 
     if (filteredVehicules.length === 0) {
-      alert("Aucun véhicule trouvé pour la période sélectionnée")
+      toast.warning("Aucune donnée", "Aucun véhicule trouvé pour la période sélectionnée")
       return
     }
 
     try {
       setGeneratingPDF(true)
+      setPdfProgress({
+        current: 0,
+        total: filteredVehicules.length,
+        percentage: 0,
+        message: 'Initialisation...'
+      })
+      
       console.log(`🚗 Génération d'un PDF avec ${filteredVehicules.length} véhicule(s)...`)
 
       // Préparer les données (véhicule + propriétaire)
@@ -107,98 +179,147 @@ export default function DocumentsPage() {
         }))
 
       if (vehiculesData.length === 0) {
-        alert("Aucun véhicule avec propriétaire trouvé pour la période")
+        toast.error("Données manquantes", "Aucun véhicule avec propriétaire trouvé pour la période")
         return
       }
 
-      // Générer le PDF multi-pages
-      await generateMultiPagePDF(vehiculesData, startDate, endDate)
+      // Import dynamique du générateur PDF
+      const { generateMultiPagePDF } = await import("@/lib/pdf-generator-fixed")
       
-      alert(`✅ PDF généré avec succès ! ${vehiculesData.length} page(s)`)
+      // Générer le PDF multi-pages avec callback de progression
+      await generateMultiPagePDF(vehiculesData, startDate, endDate, (progress) => {
+        setPdfProgress({
+          current: progress.current,
+          total: progress.total,
+          percentage: progress.percentage,
+          message: progress.message
+        })
+      })
+      
+      // Succès final
+      setPdfProgress({
+        current: vehiculesData.length,
+        total: vehiculesData.length,
+        percentage: 100,
+        message: `✅ PDF généré avec succès ! ${vehiculesData.length} page(s)`
+      })
+      
+      // Toast de succès
+      appToasts.pdfGenerated(vehiculesData.length)
+      
+      // Masquer la progression après 2 secondes
+      setTimeout(() => setPdfProgress(null), 2000)
     } catch (error) {
       console.error('Erreur lors de la génération du PDF multi-pages:', error)
-      alert("Erreur lors de la génération du PDF multi-pages")
+      setPdfProgress(null)
+      appToasts.serverError("Erreur lors de la génération du PDF multi-pages")
     } finally {
       setGeneratingPDF(false)
     }
   }
 
-  const exportAllToExcel = () => {
+  const exportAllToExcel = async () => {
     if (vehicules.length === 0) {
-      alert("Aucun véhicule à exporter")
+      appToasts.noDataSelected()
       return
     }
     
-    // Diagnostic des données avant export
-    diagnosticVehiculeData(vehicules)
+    const loadingToast = toast.loading("Préparation de l'export Excel...")
     
-    const excelData = prepareVehiculeDataForExport(vehicules)
-    exportToExcelAdvanced(excelData, `vehicules_export_${new Date().toISOString().split("T")[0]}`)
+    try {
+      // Import dynamique des fonctions Excel
+      const { diagnosticVehiculeData, prepareVehiculeDataForExport, exportToExcelAdvanced } = await import("@/lib/excel-export")
+      
+      // Diagnostic des données avant export
+      diagnosticVehiculeData(vehicules)
+      
+      const excelData = prepareVehiculeDataForExport(vehicules)
+      exportToExcelAdvanced(excelData, `vehicules_export_${new Date().toISOString().split("T")[0]}`)
+      
+      toast.dismiss(loadingToast)
+      appToasts.excelExported(vehicules.length)
+    } catch (error) {
+      toast.dismiss(loadingToast)
+      appToasts.serverError("Erreur lors de l'export Excel")
+    }
   }
 
-  const exportSelectedToExcel = () => {
+  const exportSelectedToExcel = async () => {
     if (!selectedVehicule) {
-      alert("Veuillez sélectionner un véhicule")
+      appToasts.noDataSelected()
       return
     }
 
     const vehicule = vehicules.find(v => v.id === selectedVehicule)
     if (vehicule) {
-      // Diagnostic des données avant export
-      diagnosticVehiculeData([vehicule])
+      const loadingToast = toast.loading("Préparation de l'export Excel...")
       
-      const excelData = prepareVehiculeDataForExport([vehicule])
-      exportToExcelAdvanced(
-        excelData,
-        `vehicule_${vehicule.numeroImmatriculation}_${new Date().toISOString().split("T")[0]}`,
-      )
+      try {
+        // Import dynamique des fonctions Excel
+        const { diagnosticVehiculeData, prepareVehiculeDataForExport, exportToExcelAdvanced } = await import("@/lib/excel-export")
+        
+        // Diagnostic des données avant export
+        diagnosticVehiculeData([vehicule])
+        
+        const excelData = prepareVehiculeDataForExport([vehicule])
+        exportToExcelAdvanced(
+          excelData,
+          `vehicule_${vehicule.numeroImmatriculation}_${new Date().toISOString().split("T")[0]}`,
+        )
+        
+        toast.dismiss(loadingToast)
+        appToasts.excelExported(1)
+      } catch (error) {
+        toast.dismiss(loadingToast)
+        appToasts.serverError("Erreur lors de l'export Excel")
+      }
     }
   }
 
   // Nouvelles fonctions d'export par date
   const handleExportToday = () => {
     if (vehicules.length === 0) {
-      alert("Aucune donnée à exporter")
+      appToasts.noDataSelected()
       return
     }
-    // Logique d'export pour aujourd'hui
+    toast.info("Export en cours", "Export des véhicules du jour...")
   }
 
   const handleExportSpecificDate = (date: string) => {
     if (vehicules.length === 0) {
-      alert("Aucune donnée à exporter")
+      appToasts.noDataSelected()
       return
     }
-    // Logique d'export pour une date spécifique
+    toast.info("Export en cours", `Export des véhicules du ${date}...`)
   }
 
   const handleExportDateRange = (startDate: string, endDate: string) => {
     if (vehicules.length === 0) {
-      alert("Aucune donnée à exporter")
+      appToasts.noDataSelected()
       return
     }
-    // Logique d'export pour une plage de dates
+    toast.info("Export en cours", `Export de la période ${startDate} - ${endDate}...`)
   }
 
   const handleDailyReport = () => {
     if (vehicules.length === 0) {
-      alert("Aucune donnée à exporter")
+      appToasts.noDataSelected()
       return
     }
-    // Logique pour générer le rapport quotidien
+    toast.info("Rapport en cours", "Génération du rapport quotidien...")
   }
 
   const handleMultiPeriodExport = () => {
     if (vehicules.length === 0) {
-      alert("Aucune donnée à exporter")
+      appToasts.noDataSelected()
       return
     }
-    // Logique d'export multi-période
+    toast.info("Export multi-période", "Génération de l'export multi-période...")
   }
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
+      <PageWrapper className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-6">
             <Link href="/">
@@ -211,23 +332,64 @@ export default function DocumentsPage() {
             <p className="text-gray-600">Générez les documents PDF et Excel pour les véhicules enregistrés</p>
           </div>
 
-          {/* Nouvelle section : PDF Multi-Pages par Période */}
+          {/* Barre de progression pendant le chargement des véhicules */}
+          {loadingProgress && (
+            <div className="mb-8">
+              <LoadingProgress
+                current={loadingProgress.current}
+                total={loadingProgress.total}
+                percentage={loadingProgress.percentage}
+                loaded={loadingProgress.loaded}
+                message={loadingProgress.message}
+                status={loadingProgress.percentage === 100 ? 'success' : 'loading'}
+              />
+            </div>
+          )}
+
+          {/* Barre de progression pendant la génération PDF */}
+          {pdfProgress && (
+            <div className="mb-8">
+              <LoadingProgress
+                current={pdfProgress.current}
+                total={pdfProgress.total}
+                percentage={pdfProgress.percentage}
+                message={pdfProgress.message}
+                status={pdfProgress.percentage === 100 ? 'success' : 'loading'}
+              />
+            </div>
+          )}
+
+          {/* Filtres et statistiques */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileText className="h-5 w-5 mr-2" />
-                PDF Multi-Pages par Période
-              </CardTitle>
+              <CardTitle>Filtres</CardTitle>
               <CardDescription>
-                Générez un seul fichier PDF contenant toutes les cartes roses des véhicules enregistrés dans une période donnée
+                Filtrez les véhicules par type et période
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                {/* Filtre par type */}
                 <div className="space-y-2">
-                  <Label htmlFor="dateDebut">Date de début</Label>
+                  <Label htmlFor="vehicleType">Type de véhicule</Label>
+                  <Select value={selectedVehicleType} onValueChange={setSelectedVehicleType}>
+                    <SelectTrigger id="vehicleType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Tous les types ({vehicleStats.ALL})</SelectItem>
+                      <SelectItem value="BUS">🚌 Bus ({vehicleStats.BUS})</SelectItem>
+                      <SelectItem value="MINI_BUS">🚐 Mini Bus ({vehicleStats.MINI_BUS})</SelectItem>
+                      <SelectItem value="TAXI">🚕 Taxi ({vehicleStats.TAXI})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Date de début */}
+                <div className="space-y-2">
+                  <Label htmlFor="filterStartDate">Date de début</Label>
                   <input
-                    id="dateDebut"
+                    id="filterStartDate"
                     type="date"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={startDate}
@@ -235,10 +397,12 @@ export default function DocumentsPage() {
                     disabled={loading}
                   />
                 </div>
+
+                {/* Date de fin */}
                 <div className="space-y-2">
-                  <Label htmlFor="dateFin">Date de fin</Label>
+                  <Label htmlFor="filterEndDate">Date de fin</Label>
                   <input
-                    id="dateFin"
+                    id="filterEndDate"
                     type="date"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={endDate}
@@ -246,7 +410,31 @@ export default function DocumentsPage() {
                     disabled={loading}
                   />
                 </div>
+
+                {/* Résumé */}
+                <div className="flex items-end">
+                  <div className="w-full p-3 bg-primary/10 rounded-md">
+                    <p className="text-xs text-muted-foreground mb-1">Résultat du filtre</p>
+                    <p className="text-2xl font-bold text-primary">{filteredVehicules.length}</p>
+                    <p className="text-xs text-muted-foreground">véhicule{filteredVehicules.length > 1 ? 's' : ''}</p>
+                  </div>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Nouvelle section : PDF Multi-Pages */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                Génération PDF Multi-Pages
+              </CardTitle>
+              <CardDescription>
+                Générez un seul fichier PDF contenant toutes les notes des véhicules filtrés
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
 
               <Button 
                 onClick={handleGenerateMultiPagePDF} 
@@ -291,16 +479,21 @@ export default function DocumentsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {loading ? (
-                  <div className="flex flex-col items-center justify-center py-8 space-y-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <span className="text-sm font-medium">Chargement de tous les véhicules...</span>
-                    <span className="text-xs text-muted-foreground">Cela peut prendre quelques secondes</span>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-10 w-full bg-gray-100 rounded animate-pulse" />
+                    </div>
+                    <div className="h-10 w-full bg-gray-100 rounded animate-pulse" />
                   </div>
                 ) : error ? (
-                  <div className="text-red-600 p-4 bg-red-50 rounded-lg">
-                    <p className="font-semibold">Erreur</p>
-                    <p>{error}</p>
-                  </div>
+                  <ErrorState 
+                    error={error} 
+                    onRetry={() => {
+                      setError(null)
+                      setLoading(true)
+                    }} 
+                  />
                 ) : (
                   <>
                     <div className="space-y-2">
@@ -365,13 +558,25 @@ export default function DocumentsPage() {
                 </Button>
 
                 <Button 
-                  onClick={() => {
+                  onClick={async () => {
                     if (vehicules.length === 0) {
-                      alert("Aucun véhicule à exporter")
+                      appToasts.noDataSelected()
                       return
                     }
-                    diagnosticVehiculeData(vehicules)
-                    exportToExcelDetailed(vehicules, `vehicules_complet`)
+                    const loadingToast = toast.loading("Préparation de l'export détaillé...")
+                    try {
+                      // Import dynamique des fonctions Excel
+                      const { diagnosticVehiculeData, exportToExcelDetailed } = await import("@/lib/excel-export")
+                      
+                      diagnosticVehiculeData(vehicules)
+                      exportToExcelDetailed(vehicules, `vehicules_complet`)
+                      
+                      toast.dismiss(loadingToast)
+                      appToasts.excelExported(vehicules.length)
+                    } catch (error) {
+                      toast.dismiss(loadingToast)
+                      appToasts.serverError("Erreur lors de l'export détaillé")
+                    }
                   }} 
                   className="w-full" 
                   variant="default"
@@ -402,19 +607,31 @@ export default function DocumentsPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin mr-3" />
-                  <span>Chargement des véhicules...</span>
-                </div>
+                <TableSkeleton rows={8} columns={8} />
               ) : error ? (
-                <div className="text-red-600 p-4 bg-red-50 rounded-lg">
-                  <p className="font-semibold">Erreur lors du chargement</p>
-                  <p>{error}</p>
-                </div>
+                <ErrorState 
+                  error={error} 
+                  onRetry={() => {
+                    setError(null)
+                    setLoading(true)
+                  }} 
+                />
               ) : vehicules.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>Aucun véhicule enregistré dans le système</p>
-                </div>
+                <NoVehiclesFound 
+                  onReset={() => {
+                    setStartDate("")
+                    setEndDate("")
+                    setSelectedVehicleType("ALL")
+                  }} 
+                />
+              ) : filteredVehicules.length === 0 ? (
+                <NoDataInRange 
+                  onAdjust={() => {
+                    setStartDate("")
+                    setEndDate("")
+                    setSelectedVehicleType("ALL")
+                  }} 
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -431,7 +648,7 @@ export default function DocumentsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {vehicules.map((vehicule) => (
+                      {filteredVehicules.map((vehicule) => (
                         <TableRow key={vehicule.id}>
                           <TableCell>
                             <div>
@@ -483,9 +700,21 @@ export default function DocumentsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => {
-                                  const excelData = prepareVehiculeDataForExport([vehicule])
-                                  exportToExcelAdvanced(excelData, `vehicule_${vehicule.numeroImmatriculation}`)
+                                onClick={async () => {
+                                  const loadingToast = toast.loading("Export Excel...")
+                                  try {
+                                    // Import dynamique des fonctions Excel
+                                    const { prepareVehiculeDataForExport, exportToExcelAdvanced } = await import("@/lib/excel-export")
+                                    
+                                    const excelData = prepareVehiculeDataForExport([vehicule])
+                                    exportToExcelAdvanced(excelData, `vehicule_${vehicule.numeroImmatriculation}`)
+                                    
+                                    toast.dismiss(loadingToast)
+                                    appToasts.excelExported(1)
+                                  } catch (error) {
+                                    toast.dismiss(loadingToast)
+                                    appToasts.serverError("Erreur lors de l'export")
+                                  }
                                 }}
                               >
                                 Excel
@@ -501,7 +730,7 @@ export default function DocumentsPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </PageWrapper>
     </AuthGuard>
   )
 }

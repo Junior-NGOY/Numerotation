@@ -1,5 +1,5 @@
 import { apiRequest, apiRequestFormData } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast, appToasts } from '@/lib/toast';
 import type { 
   Vehicule, 
   CreateVehiculeForm,
@@ -36,15 +36,21 @@ export async function createVehicule(vehiculeData: CreateVehiculeForm, files?: F
         method: 'POST',
         body: JSON.stringify(vehiculeData),
       });
-    }    // Afficher un message de succès
+    }
+    
+    // Afficher un message de succès ou d'erreur
     if (result.data && !result.error) {
-      toast.success("✅ Véhicule ajouté avec succès !");
+      appToasts.vehicleCreated(vehiculeData.numeroImmatriculation);
+    } else if (result.error) {
+      // Afficher l'erreur spécifique retournée par le serveur
+      toast.error("Erreur lors de l'ajout du véhicule", result.error);
     }
 
     return result;
   } catch (error) {
-    // Afficher un message d'erreur
-    toast.error("❌ Impossible d'ajouter le véhicule. Veuillez réessayer.");
+    // Erreur inattendue (ex: problème réseau)
+    console.error("Erreur lors de la création du véhicule:", error);
+    appToasts.networkError();
     throw error;
   }
 }
@@ -99,15 +105,21 @@ export async function updateVehicule(id: string, vehiculeData: Partial<CreateVeh
     const result = await apiRequest<Vehicule>(`/api/v1/vehicules/${id}`, {
       method: 'PUT',
       body: JSON.stringify(vehiculeData),
-    });    // Afficher un message de succès
+    });
+    
+    // Afficher un message de succès ou d'erreur
     if (result.data && !result.error) {
-      toast.success("✅ Véhicule modifié avec succès !");
+      appToasts.vehicleUpdated(vehiculeData.numeroImmatriculation || result.data.numeroImmatriculation);
+    } else if (result.error) {
+      // Afficher l'erreur spécifique retournée par le serveur
+      toast.error("Erreur lors de la modification", result.error);
     }
 
     return result;
   } catch (error) {
-    // Afficher un message d'erreur
-    toast.error("❌ Impossible de modifier le véhicule. Veuillez réessayer.");
+    // Erreur inattendue (ex: problème réseau)
+    console.error("Erreur lors de la modification du véhicule:", error);
+    appToasts.networkError();
     throw error;
   }
 }
@@ -117,15 +129,21 @@ export async function deleteVehicule(id: string): Promise<ApiResponse<{ message:
   try {
     const result = await apiRequest<{ message: string }>(`/api/v1/vehicules/${id}`, {
       method: 'DELETE',
-    });    // Afficher un message de succès
+    });
+    
+    // Afficher un message de succès ou d'erreur
     if (result.data && !result.error) {
-      toast.success("🗑️ Véhicule supprimé avec succès !");
+      appToasts.vehicleDeleted();
+    } else if (result.error) {
+      // Afficher l'erreur spécifique retournée par le serveur
+      toast.error("Erreur lors de la suppression", result.error);
     }
 
     return result;
   } catch (error) {
-    // Afficher un message d'erreur
-    toast.error("❌ Impossible de supprimer le véhicule. Veuillez réessayer.");
+    // Erreur inattendue (ex: problème réseau)
+    console.error("Erreur lors de la suppression du véhicule:", error);
+    appToasts.networkError();
     throw error;
   }
 }

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import { generateQRCode, generateVehicleQRData } from './qr-generator'
 import { formatPrice, getVehicleTypeDescription } from './pricing-utils'
+import { getCachedLogoSID, getCachedLogoMairie, preloadLogos } from './logo-cache'
 
 // Fonction pour convertir un nombre en lettres (français)
 function convertirNombreEnLettres(nombre: number): string {
@@ -951,50 +952,80 @@ export const testLogoAvailability = async () => {
   return results
 }
 
+// Type pour le callback de progression PDF
+export type PDFProgressCallback = (progress: {
+  current: number;
+  total: number;
+  percentage: number;
+  message: string;
+  vehiculeCode?: string;
+}) => void;
+
 /**
  * Génère UN SEUL PDF contenant plusieurs pages (une par véhicule)
  * GARDE LE FORMAT ORIGINAL EXACTEMENT IDENTIQUE
  * @param vehicules - Liste des véhicules avec leurs propriétaires
  * @param startDate - Date de début optionnelle (pour le nom du fichier)
  * @param endDate - Date de fin optionnelle (pour le nom du fichier)
+ * @param onProgress - Callback optionnel pour suivre la progression
  */
 export const generateMultiPagePDF = async (
   vehicules: Array<{ vehicule: any; proprietaire: any }>,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  onProgress?: PDFProgressCallback
 ) => {
   if (vehicules.length === 0) {
     throw new Error('Aucun véhicule à générer')
   }
 
   console.log(`📄 Génération d'un PDF multi-pages avec ${vehicules.length} véhicule(s)...`)
+  
+  // Notifier le début de la génération
+  if (onProgress) {
+    onProgress({
+      current: 0,
+      total: vehicules.length,
+      percentage: 0,
+      message: 'Préparation du document PDF...'
+    });
+  }
 
   // Créer UN SEUL document PDF
   const doc = new jsPDF()
   
-  // Charger les logos UNE SEULE FOIS
-  let logoSIDDataURL: string | null = null
-  let logoMairieDataURL: string | null = null
-  
-  try {
-    logoSIDDataURL = await loadImageAsBase64('/logo-sid.jpeg')
-    console.log('✅ Logo SID chargé')
-  } catch (error) {
-    console.warn('⚠️ Logo SID non disponible:', error)
+  // Charger les logos depuis le CACHE (beaucoup plus rapide !)
+  if (onProgress) {
+    onProgress({
+      current: 0,
+      total: vehicules.length,
+      percentage: 0,
+      message: 'Récupération des logos...'
+    });
   }
   
-  try {
-    logoMairieDataURL = await loadImageAsBase64('/logo-mairie.png')
-    console.log('✅ Logo Mairie chargé')
-  } catch (error) {
-    console.warn('⚠️ Logo Mairie non disponible:', error)
-  }
+  // Utiliser les logos en cache
+  const logoSIDDataURL = await getCachedLogoSID()
+  const logoMairieDataURL = await getCachedLogoMairie()
+  
+  console.log('✅ Logos récupérés depuis le cache')
 
   // Boucle sur chaque véhicule pour générer une page
   for (let i = 0; i < vehicules.length; i++) {
-    const { vehicule: vehiculeData, proprietaire: proprietaireData } = vehicules[i]
+    const { vehicule: vehiculeData, proprietaire: proprietaireData} = vehicules[i]
     
     console.log(`📃 Page ${i + 1}/${vehicules.length}: ${vehiculeData.codeUnique}`)
+    
+    // Notifier la progression
+    if (onProgress) {
+      onProgress({
+        current: i + 1,
+        total: vehicules.length,
+        percentage: Math.round(((i + 1) / vehicules.length) * 100),
+        message: `Génération page ${i + 1}/${vehicules.length}...`,
+        vehiculeCode: vehiculeData.codeUnique
+      });
+    }
 
     // Ajouter une nouvelle page (sauf pour la première)
     if (i > 0) {

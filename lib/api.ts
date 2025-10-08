@@ -53,17 +53,49 @@ export async function apiRequest<T>(
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      // Essayer de récupérer les détails de l'erreur du serveur
+      let errorMessage = `Erreur HTTP ${response.status}`;
+      
+      try {
+        const errorData = await response.json();
+        
+        // Le serveur peut renvoyer l'erreur dans différents champs
+        errorMessage = errorData.error || errorData.message || errorMessage;
+        
+        // Ajouter des détails supplémentaires si disponibles
+        if (errorData.details) {
+          errorMessage += `: ${errorData.details}`;
+        }
+      } catch (parseError) {
+        // Si le JSON ne peut pas être parsé, utiliser le statut HTTP
+        console.error('Impossible de parser la réponse d\'erreur:', parseError);
+      }
+      
+      console.error(`API Error [${response.status}]:`, errorMessage);
+      
+      return {
+        data: null as T,
+        error: errorMessage,
+      };
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
     console.error('API Request Error:', error);
+    
+    // Différencier les erreurs réseau des autres erreurs
+    let errorMessage = 'Une erreur inconnue s\'est produite';
+    
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     return {
       data: null as T,
-      error: error instanceof Error ? error.message : 'Une erreur inconnue s\'est produite',
+      error: errorMessage,
     };
   }
 }
@@ -97,17 +129,49 @@ export async function apiRequestFormData<T>(
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      // Essayer de récupérer les détails de l'erreur du serveur
+      let errorMessage = `Erreur HTTP ${response.status}`;
+      
+      try {
+        const errorData = await response.json();
+        
+        // Le serveur peut renvoyer l'erreur dans différents champs
+        errorMessage = errorData.error || errorData.message || errorMessage;
+        
+        // Ajouter des détails supplémentaires si disponibles
+        if (errorData.details) {
+          errorMessage += `: ${errorData.details}`;
+        }
+      } catch (parseError) {
+        // Si le JSON ne peut pas être parsé, utiliser le statut HTTP
+        console.error('Impossible de parser la réponse d\'erreur:', parseError);
+      }
+      
+      console.error(`API Error [${response.status}]:`, errorMessage);
+      
+      return {
+        data: null as T,
+        error: errorMessage,
+      };
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
     console.error('API Request Error:', error);
+    
+    // Différencier les erreurs réseau des autres erreurs
+    let errorMessage = 'Une erreur inconnue s\'est produite';
+    
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     return {
       data: null as T,
-      error: error instanceof Error ? error.message : 'Une erreur inconnue s\'est produite',
+      error: errorMessage,
     };
   }
 }

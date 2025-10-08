@@ -1,5 +1,5 @@
 import { apiRequest, apiRequestFormData } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import type { 
   Proprietaire, 
   CreateProprietaireForm,
@@ -35,15 +35,27 @@ export async function createProprietaire(proprietaireData: CreateProprietaireFor
         method: 'POST',
         body: JSON.stringify(proprietaireData),
       });
-    }    // Afficher un message de succès
+    }
+    
+    // Afficher un message de succès ou d'erreur
     if (result.data && !result.error) {
-      toast.success("✅ Propriétaire ajouté avec succès !");
+      toast.success(
+        "Propriétaire ajouté",
+        `${proprietaireData.prenom} ${proprietaireData.nom} a été ajouté avec succès`
+      );
+    } else if (result.error) {
+      // Afficher l'erreur spécifique retournée par le serveur
+      toast.error("Erreur lors de l'ajout du propriétaire", result.error);
     }
 
     return result;
   } catch (error) {
-    // Afficher un message d'erreur
-    toast.error("❌ Impossible d'ajouter le propriétaire. Veuillez réessayer.");
+    // Erreur inattendue (ex: problème réseau)
+    console.error("Erreur lors de la création du propriétaire:", error);
+    toast.error(
+      "Erreur de connexion",
+      "Impossible de se connecter au serveur. Vérifiez votre connexion internet."
+    );
     throw error;
   }
 }
