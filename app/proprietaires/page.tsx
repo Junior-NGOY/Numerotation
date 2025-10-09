@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,9 +28,12 @@ import { usePaginatedApiCall, useApiMutation } from "@/hooks/use-api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getProprietaires, createProprietaire, updateProprietaire, deleteProprietaire } from "@/actions/proprietaires"
 import type { Proprietaire, CreateProprietaireForm } from "@/types/api"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
-export default function ProprietairesPage() {  const [isDialogOpen, setIsDialogOpen] = useState(false)
+export default function ProprietairesPage() {
+  const router = useRouter()
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProprietaire, setEditingProprietaire] = useState<Proprietaire | null>(null)
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -77,6 +81,7 @@ export default function ProprietairesPage() {  const [isDialogOpen, setIsDialogO
   } = useForm<CreateProprietaireForm>()
   const onSubmit = async (data: CreateProprietaireForm) => {
     let result;
+    const isCreating = !editingProprietaire;
     
     if (editingProprietaire) {
       // Modification
@@ -93,6 +98,21 @@ export default function ProprietairesPage() {  const [isDialogOpen, setIsDialogO
       setSelectedFiles([])
       reset()
       refetch()
+      
+      // Redirection automatique vers la page véhicules après création d'un propriétaire
+      if (isCreating && result.data) {
+        // Petit délai pour laisser le toast de succès s'afficher
+        setTimeout(() => {
+          toast.info(
+            "Redirection automatique",
+            "Vous allez être redirigé vers la page véhicules pour ajouter un véhicule"
+          )
+          // Redirection avec le proprietaireId dans l'URL pour pré-sélection
+          setTimeout(() => {
+            router.push(`/vehicules?action=add&proprietaireId=${result.data.id}`)
+          }, 800)
+        }, 1200)
+      }
     } else {
       const errorMessage = editingProprietaire ? updateMutation.error : createMutation.error
       toast.error(errorMessage || "Une erreur est survenue")
@@ -298,7 +318,7 @@ export default function ProprietairesPage() {  const [isDialogOpen, setIsDialogO
                       <Input
                         id="telephone"
                         {...register("telephone", { required: "Le téléphone est requis" })}
-                        placeholder="+33 6 12 34 56 78"
+                        placeholder="+243 81 234 5678"
                       />
                       {errors.telephone && (
                         <p className="text-sm text-red-600 mt-1">{errors.telephone.message}</p>

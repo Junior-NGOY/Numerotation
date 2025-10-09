@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, lazy, Suspense } from "react"
+import { useState, useEffect, useRef, lazy, Suspense } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
@@ -30,7 +31,7 @@ import { getVehicules, createVehicule, updateVehicule, deleteVehicule } from "@/
 import { getProprietaires } from "@/actions/proprietaires"
 import { getActiveItineraires, ActiveItineraire } from "@/actions/itineraires"
 import type { Vehicule, CreateVehiculeForm, Proprietaire, Itineraire } from "@/types/api"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { formatPrice, getVehicleTypeDescription, calculateRegistrationPrice } from "@/lib/pricing-utils"
 import { PageWrapper } from "@/components/page-wrapper"
 
@@ -40,7 +41,12 @@ const DocumentEditor = dynamic(() => import("@/components/document-editor"), {
   ssr: false
 })
 
-export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen] = useState(false)
+// Composant interne qui utilise useSearchParams
+function VehiculesContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingVehicule, setEditingVehicule] = useState<Vehicule | null>(null)
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -49,6 +55,9 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [itineraires, setItineraires] = useState<ActiveItineraire[]>([])
   const [itinerairesLoading, setItinerairesLoading] = useState(false)
+  
+  // Flag pour éviter la ré-ouverture automatique après fermeture
+  const autoOpenProcessedRef = useRef(false)
 
   // Débounce pour la recherche automatique (500ms de délai)
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
@@ -121,6 +130,39 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
     loadItineraires()
   }, [])
 
+  // Réinitialiser le flag quand les paramètres URL changent (nouvelle redirection)
+  useEffect(() => {
+    const action = searchParams.get('action')
+    // Si les paramètres sont absents, réinitialiser le flag pour permettre une future ouverture auto
+    if (!action) {
+      autoOpenProcessedRef.current = false
+    }
+  }, [searchParams])
+
+  // Gérer l'ouverture automatique du dialog depuis les paramètres URL
+  useEffect(() => {
+    const action = searchParams.get('action')
+    const proprietaireId = searchParams.get('proprietaireId')
+    
+    // Ouvrir automatiquement SEULEMENT si pas encore traité
+    if (action === 'add' && !isDialogOpen && !autoOpenProcessedRef.current) {
+      // Attendre que les propriétaires soient chargés
+      if (!proprietairesLoading && proprietaires.length > 0) {
+        setIsDialogOpen(true)
+        autoOpenProcessedRef.current = true // Marquer comme traité
+        
+        // Pré-sélectionner le propriétaire si l'ID est fourni
+        if (proprietaireId) {
+          setValue('proprietaireId', proprietaireId)
+          toast.success(
+            "Propriétaire pré-sélectionné",
+            "Le propriétaire que vous venez d'ajouter est déjà sélectionné"
+          )
+        }
+      }
+    }
+  }, [searchParams, proprietairesLoading, proprietaires, isDialogOpen])
+
   // Wrappers pour les mutations afin de gérer les types correctement
   const createMutation = useApiMutation(async (params?: { data: CreateVehiculeForm; files?: File[] }) => {
     if (!params) throw new Error('Données requises pour la création')
@@ -145,6 +187,20 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
     watch,
     formState: { errors },
   } = useForm<CreateVehiculeForm>()
+
+  // Fonction pour fermer le modal et réinitialiser tous les états
+  const closeDialog = () => {
+    setIsDialogOpen(false)
+    setEditingVehicule(null)
+    setSelectedFiles([])
+    reset()
+    
+    // Nettoyer les paramètres URL pour éviter la ré-ouverture automatique
+    if (searchParams.get('action') || searchParams.get('proprietaireId')) {
+      router.push('/vehicules')
+    }
+  }
+
   const onSubmit = async (data: CreateVehiculeForm) => {
     let result;
     
@@ -157,15 +213,21 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
       result = await createMutation.mutate({ data, files })
     }
 
-    if (result) {
-      setIsDialogOpen(false)
-      setEditingVehicule(null)
-      setSelectedFiles([])
-      reset()
-      refetch()
+    // Vérifier si l'opération a réussi
+    if (result && 'data' in result && result.data && !result.error) {
+      // Attendre un court instant pour que le toast de succès soit visible
+      setTimeout(() => {
+        // Fermer le modal et réinitialiser
+        closeDialog()
+        // Rafraîchir la liste
+        refetch()
+      }, 500)
     } else {
+      // Gérer les erreurs
       const errorMessage = editingVehicule ? updateMutation.error : createMutation.error
-      toast.error(errorMessage || "Une erreur est survenue")
+      if (!errorMessage) {
+        toast.error("Une erreur est survenue lors de l'opération")
+      }
     }
   }
 
@@ -390,7 +452,13 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
               <p className="text-sm sm:text-base text-gray-600">Enregistrement et gestion des véhicules de transport</p>
             </div>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            if (!open) {
+              closeDialog()
+            } else {
+              setIsDialogOpen(true)
+            }
+          }}>
             <DialogTrigger asChild>
               <Button onClick={() => {
                 setEditingVehicule(null)
@@ -852,5 +920,18 @@ export default function VehiculesPage() {  const [isDialogOpen, setIsDialogOpen]
         </Dialog>
       </div>
     </AuthGuard>
+  )
+}
+
+// Composant principal avec Suspense boundary
+export default function VehiculesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <VehiculesContent />
+    </Suspense>
   )
 }
